@@ -20,21 +20,37 @@ export async function GET() {
       default_currency: string;
       industry: string;
     } | null = null;
+    let enabledModules: string[] = [];
 
     if (effectiveAccountId) {
-      const { data: dbAccount } = await supabase
-        .from('accounts')
-        .select('id, name, default_currency, industry')
-        .eq('id', effectiveAccountId)
-        .maybeSingle();
+      const [accountRes, modulesRes] = await Promise.all([
+        supabase
+          .from('accounts')
+          .select('id, name, default_currency, industry')
+          .eq('id', effectiveAccountId)
+          .maybeSingle(),
+        supabase
+          .from('tenant_modules')
+          .select('module_key, enabled')
+          .eq('account_id', effectiveAccountId),
+      ]);
 
-      if (dbAccount) {
+      if (accountRes.data) {
         accountData = {
-          id: dbAccount.id,
-          name: dbAccount.name || 'Workspace Account',
-          default_currency: dbAccount.default_currency || 'USD',
-          industry: dbAccount.industry || 'general',
+          id: accountRes.data.id,
+          name: accountRes.data.name || 'Workspace Account',
+          default_currency: accountRes.data.default_currency || 'USD',
+          industry: accountRes.data.industry || 'general',
         };
+      }
+
+      if (modulesRes.data && Array.isArray(modulesRes.data)) {
+        enabledModules = modulesRes.data
+          .filter(
+            (m: { enabled?: boolean; module_key?: unknown }) =>
+              m?.enabled === true && typeof m.module_key === 'string'
+          )
+          .map((m: { module_key: string }) => m.module_key);
       }
     }
 
@@ -74,6 +90,7 @@ export async function GET() {
           is_super_admin: isSuper,
         },
         account: accountData,
+        enabled_modules: enabledModules,
       });
     }
 
@@ -103,6 +120,7 @@ export async function GET() {
         is_super_admin: isSuper,
       },
       account: accountData,
+      enabled_modules: enabledModules,
     });
   } catch (err) {
     return toErrorResponse(err);

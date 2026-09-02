@@ -31,8 +31,7 @@ function toCoreManifest(industry?: string | null): CoreIndustryManifest {
     aiRole: industryModule.aiRole,
     systemPrompt: industryModule.systemPrompt,
     terminology: industryModule.terminology as
-      | Record<string, string>
-      | undefined,
+      Record<string, string> | undefined,
     safetyKeywords: industryModule.safetyKeywords,
     safetyResponse: industryModule.safetyResponse,
     entityLabel: industryModule.entityConfigs?.contacts?.label,

@@ -40,9 +40,7 @@ export interface IndustryModulePort {
    * Optional industry-specific prompt augmentation hook (e.g. travel package
    * grounding). Core calls this instead of hardcoding industry branches.
    */
-  augmentSystemPrompt?(
-    params: SystemPromptAugmentationParams
-  ): Promise<string>;
+  augmentSystemPrompt?(params: SystemPromptAugmentationParams): Promise<string>;
   /** Retrieve all seeded knowledge base titles registered across industries. */
   getSeededKnowledgeTitles?(): Set<string> | string[];
 }

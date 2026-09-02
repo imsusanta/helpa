@@ -53,8 +53,7 @@ export async function ensureTravelWorkflowsSeeded(opts: {
       name: workflow.name,
       description: workflow.description,
       triggerType: workflow.trigger_type,
-      triggerConfig:
-        (workflow.trigger_config as Record<string, unknown>) || {},
+      triggerConfig: (workflow.trigger_config as Record<string, unknown>) || {},
       isActive: true,
       metadata: {
         helpa_seeded_workflow: true,

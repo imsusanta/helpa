@@ -1,7 +1,5 @@
 import { NextResponse } from 'next/server';
-
-import { toErrorResponse } from '@/lib/auth/account';
-import { requireHealthWorkplace } from '@/lib/auth/industry';
+import { requireRole, toErrorResponse } from '@/lib/auth/account';
 import {
   RATE_LIMITS,
   checkRateLimit,
@@ -12,13 +10,10 @@ import {
   generateOpenRouterCopilotSnapshot,
   type CopilotAppointment,
   type CopilotContact,
-  type CopilotContactNote,
   type CopilotConversationMemory,
   type CopilotDoctor,
-  type CopilotInsuranceProvider,
   type CopilotKbEntry,
   type CopilotMessage,
-  type CopilotPatient,
   type CopilotReport,
   type CopilotSourceContext,
 } from '@/lib/ai/receptionist-copilot';
@@ -65,14 +60,14 @@ function isConversationRow(value: unknown): value is ConversationRow {
 }
 
 async function loadCopilotContext(
-  ctx: Awaited<ReturnType<typeof requireHealthWorkplace>>,
+  ctx: Awaited<ReturnType<typeof requireRole>>,
   conversationId: string
 ): Promise<CopilotSourceContext | NextResponse> {
   const { data: conversationData, error: conversationError } =
     await ctx.appwrite
       .from('conversations')
       .select(
-        'id, account_id, contact_id, status, last_message_text, last_message_at, ai_summary, created_at, contact:contacts(id, name, phone, email, company)'
+        'id, account_id, contact_id, status, last_message_text, last_message_at, ai_summary, created_at, contact:contacts(id, name, phone, email, metadata)'
       )
       .eq('id', conversationId)
       .eq('account_id', ctx.accountId)
@@ -99,7 +94,7 @@ async function loadCopilotContext(
   if (!contact) {
     const { data: contactData, error: contactError } = await ctx.appwrite
       .from('contacts')
-      .select('id, name, phone, email, company')
+      .select('id, name, phone, email, metadata')
       .eq('id', conversation.contact_id)
       .eq('account_id', ctx.accountId)
       .maybeSingle();
@@ -121,15 +116,13 @@ async function loadCopilotContext(
     );
   }
 
+  // Resilient queries that gracefully degrade if industry-specific tables/columns are not present
   const [
     messagesRes,
     memoryRes,
-    patientRes,
     appointmentsRes,
     reportsRes,
-    insuranceRes,
     kbRes,
-    notesRes,
     accountRes,
   ] = await Promise.all([
     ctx.appwrite
@@ -147,103 +140,69 @@ async function loadCopilotContext(
       .eq('contact_id', contact.id)
       .order('last_message_at', { ascending: false, nullsFirst: false })
       .limit(8),
-    ctx.appwrite
-      .from('patients')
-      .select(
-        'patient_seq_id, gender, date_of_birth, department, ai_summary, ai_notes, status, assigned_doctor:hospital_doctors(id, name, department, specialization)'
-      )
-      .eq('id', contact.id)
-      .eq('account_id', ctx.accountId)
-      .maybeSingle(),
-    ctx.appwrite
-      .from('appointments')
-      .select(
-        'id, appointment_date, appointment_time, status, department, token_number, queue_position, booking_id, notes, created_at, doctor:hospital_doctors(id, name, department, specialization)'
-      )
-      .eq('patient_id', contact.id)
-      .eq('account_id', ctx.accountId)
-      .order('appointment_date', { ascending: false })
-      .order('appointment_time', { ascending: false })
-      .limit(12),
-    ctx.appwrite
-      .from('hospital_lab_reports')
-      .select(
-        'id, test_name, status, expected_delivery_date, report_pdf_url, result_url, notes, created_at, updated_at'
-      )
-      .eq('patient_id', contact.id)
-      .eq('account_id', ctx.accountId)
-      .order('created_at', { ascending: false })
-      .limit(8),
-    ctx.appwrite
-      .from('hospital_insurance')
-      .select('provider_name, cashless_available, required_documents')
-      .eq('account_id', ctx.accountId)
-      .order('provider_name', { ascending: true })
-      .limit(30),
-    ctx.appwrite
-      .from('knowledge_base')
-      .select('category, question_title, answer_content')
-      .eq('account_id', ctx.accountId)
-      .order('category', { ascending: true })
-      .order('question_title', { ascending: true })
-      .limit(30),
-    ctx.appwrite
-      .from('contact_notes')
-      .select('note_text, created_at')
-      .eq('contact_id', contact.id)
-      .order('created_at', { ascending: false })
-      .limit(8),
-    ctx.appwrite
-      .from('accounts')
-      .select('name, openrouter_api_key, openrouter_model, ai_system_prompt')
-      .eq('id', ctx.accountId)
-      .maybeSingle(),
+    Promise.resolve(
+      ctx.appwrite
+        .from('appointments')
+        .select(
+          'id, appointment_date, appointment_time, status, department, token_number, queue_position, booking_id, notes, created_at'
+        )
+        .eq('patient_id', contact.id)
+        .eq('account_id', ctx.accountId)
+        .order('appointment_date', { ascending: false })
+        .order('appointment_time', { ascending: false })
+        .limit(12)
+    ).catch(() => ({ data: [], error: null })),
+    Promise.resolve(
+      ctx.appwrite
+        .from('hospital_lab_reports')
+        .select(
+          'id, test_name, status, file_url, summary, report_date, created_at, updated_at'
+        )
+        .eq('patient_id', contact.id)
+        .eq('account_id', ctx.accountId)
+        .order('created_at', { ascending: false })
+        .limit(8)
+    ).catch(() => ({ data: [], error: null })),
+    Promise.resolve(
+      ctx.appwrite
+        .from('knowledge_base')
+        .select('category, question_title, answer_content')
+        .eq('account_id', ctx.accountId)
+        .order('category', { ascending: true })
+        .order('question_title', { ascending: true })
+        .limit(30)
+    ).catch(() => ({ data: [], error: null })),
+    Promise.resolve(
+      ctx.appwrite
+        .from('accounts')
+        .select('name, openrouter_api_key, openrouter_model, ai_system_prompt')
+        .eq('id', ctx.accountId)
+        .maybeSingle()
+    ).catch(() => ({ data: null, error: null })),
   ]);
 
-  const fetchErrors = [
-    ['messages', messagesRes.error],
-    ['conversation memory', memoryRes.error],
-    ['patient', patientRes.error],
-    ['appointments', appointmentsRes.error],
-    ['reports', reportsRes.error],
-    ['insurance', insuranceRes.error],
-    ['knowledge base', kbRes.error],
-    ['contact notes', notesRes.error],
-    ['account', accountRes.error],
-  ].filter(([, error]) => Boolean(error));
-
-  if (fetchErrors.length > 0) {
-    for (const [label, error] of fetchErrors) {
-      console.error(`[AI Copilot] ${label} fetch error:`, error);
-    }
-  }
-
-  const account = (accountRes.data ?? {}) as AccountAiRow;
-  const messages = ((messagesRes.data ?? []) as CopilotMessage[]).reverse();
+  const account = (accountRes?.data ?? {}) as AccountAiRow;
+  const messages = ((messagesRes?.data ?? []) as CopilotMessage[]).reverse();
 
   return {
     accountName: account.name ?? ctx.account.name,
     contact,
-    patient: (patientRes.data ?? null) as
-      | (CopilotPatient & {
-          assigned_doctor?: Related<CopilotDoctor>;
-        })
-      | null,
+    patient: null,
     messages,
-    conversationMemory: (memoryRes.data ?? []) as CopilotConversationMemory[],
-    appointments: (appointmentsRes.data ?? []) as Array<
+    conversationMemory: (memoryRes?.data ?? []) as CopilotConversationMemory[],
+    appointments: (appointmentsRes?.data ?? []) as Array<
       CopilotAppointment & { doctor?: Related<CopilotDoctor> }
     >,
-    reports: (reportsRes.data ?? []) as CopilotReport[],
-    insuranceProviders: (insuranceRes.data ?? []) as CopilotInsuranceProvider[],
-    kbEntries: (kbRes.data ?? []) as CopilotKbEntry[],
-    contactNotes: (notesRes.data ?? []) as CopilotContactNote[],
+    reports: (reportsRes?.data ?? []) as CopilotReport[],
+    insuranceProviders: [],
+    kbEntries: (kbRes?.data ?? []) as CopilotKbEntry[],
+    contactNotes: [],
   };
 }
 
 export async function POST(request: Request) {
   try {
-    const ctx = await requireHealthWorkplace('viewer');
+    const ctx = await requireRole('viewer');
 
     const limit = await checkRateLimit(
       `ai-copilot:${ctx.userId}`,
@@ -273,6 +232,10 @@ export async function POST(request: Request) {
       .eq('id', ctx.accountId)
       .maybeSingle();
     const accountData = (account.data ?? {}) as AccountAiRow;
+    context.industry =
+      (accountData.industry as string) ||
+      (ctx.account.industry as string) ||
+      null;
 
     let fallback = buildFallbackCopilotSnapshot(context);
 

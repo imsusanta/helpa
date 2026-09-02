@@ -119,7 +119,7 @@ export async function GET(_request: NextRequest, { params }: Params) {
     const supabase = getSupabaseAdminClient();
     const { data: conv, error: convErr } = await supabase
       .from('conversations')
-      .select('*')
+      .select('*, contact:contacts(*)')
       .eq('id', conversationId)
       .eq('account_id', accountId)
       .maybeSingle();
@@ -131,42 +131,46 @@ export async function GET(_request: NextRequest, { params }: Params) {
       );
     }
 
-    let contact: Contact | undefined;
     const cId = (conv.contact_id || conv.contactId) as string;
-    if (cId) {
+    let rawContact = (conv.contact as Record<string, unknown> | null) ?? null;
+
+    if (!rawContact && cId) {
       const { data: cDoc } = await supabase
         .from('contacts')
         .select('*')
         .eq('id', cId)
         .eq('account_id', accountId)
         .maybeSingle();
-      if (cDoc) {
-        hydrateInboxContactsFromCache(accountId, [cDoc]);
-        runAfterResponse(() => {
-          scheduleInboxGroupNameSync(accountId, [cDoc]);
-        });
-        contact = normalizeContact(cDoc);
-        if (isHiddenWhatsAppInboxChat(contact.phone, contact.metadata)) {
-          return NextResponse.json(
-            { error: 'Conversation not found' },
-            { status: 404, headers: CACHE_HEADERS }
-          );
-        }
-      } else {
-        contact = {
-          id: cId,
-          account_id: accountId,
-          user_id: '',
-          name: whatsappContactDisplayName(
-            (conv.contact_name as string) || (conv.patient_name as string),
-            conv.phone as string,
-            'Contact'
-          ),
-          phone: (conv.phone as string) || '',
-          created_at: (conv.created_at as string) || new Date().toISOString(),
-          updated_at: (conv.updated_at as string) || new Date().toISOString(),
-        };
+      if (cDoc) rawContact = cDoc as Record<string, unknown>;
+    }
+
+    let contact: Contact | undefined;
+    if (rawContact) {
+      hydrateInboxContactsFromCache(accountId, [rawContact]);
+      runAfterResponse(() => {
+        scheduleInboxGroupNameSync(accountId, [rawContact]);
+      });
+      contact = normalizeContact(rawContact);
+      if (isHiddenWhatsAppInboxChat(contact.phone, contact.metadata)) {
+        return NextResponse.json(
+          { error: 'Conversation not found' },
+          { status: 404, headers: CACHE_HEADERS }
+        );
       }
+    } else if (cId) {
+      contact = {
+        id: cId,
+        account_id: accountId,
+        user_id: '',
+        name: whatsappContactDisplayName(
+          (conv.contact_name as string) || (conv.patient_name as string),
+          conv.phone as string,
+          'Contact'
+        ),
+        phone: (conv.phone as string) || '',
+        created_at: (conv.created_at as string) || new Date().toISOString(),
+        updated_at: (conv.updated_at as string) || new Date().toISOString(),
+      };
     }
 
     const normalized = normalizeConversation(conv, contact);
@@ -243,8 +247,22 @@ export async function PATCH(request: NextRequest, { params }: Params) {
       body.ai_chat_enabled !== undefined ||
       body.aiChatEnabled !== undefined
     ) {
-      updatePayload.ai_chat_enabled = Boolean(
+      const enabled = Boolean(
         body.ai_chat_enabled ?? body.aiChatEnabled
+      );
+      updatePayload.ai_chat_enabled = enabled;
+      if (enabled) {
+        updatePayload.ai_handoff_required = false;
+        updatePayload.ai_autoreply_disabled = false;
+        updatePayload.is_ai_enabled = true;
+      }
+    }
+    if (
+      body.ai_handoff_required !== undefined ||
+      body.aiHandoffRequired !== undefined
+    ) {
+      updatePayload.ai_handoff_required = Boolean(
+        body.ai_handoff_required ?? body.aiHandoffRequired
       );
     }
     if (

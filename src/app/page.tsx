@@ -1,11 +1,6 @@
 import dynamic from 'next/dynamic';
 import { LandingNavbar } from '@/components/landing/navbar';
 import { LandingHero } from '@/components/landing/hero';
-import { LandingIndustrySolutions } from '@/components/landing/industry-solutions';
-import { LandingSecurityBadges } from '@/components/landing/security-badges';
-import { LandingPricingSection } from '@/components/landing/pricing-section';
-import { LandingFaqSection } from '@/components/landing/faq-section';
-import { LandingCtaBanner } from '@/components/landing/cta-banner';
 import { LandingFooter } from '@/components/landing/footer';
 
 const LandingInteractiveShowcase = dynamic(
@@ -17,6 +12,56 @@ const LandingInteractiveShowcase = dynamic(
     loading: () => (
       <div className="min-h-[520px] bg-[#F1EEFA]" aria-hidden="true" />
     ),
+  }
+);
+
+const LandingIndustrySolutions = dynamic(
+  () =>
+    import('@/components/landing/industry-solutions').then(
+      (mod) => mod.LandingIndustrySolutions
+    ),
+  {
+    loading: () => <div className="min-h-[300px]" aria-hidden="true" />,
+  }
+);
+
+const LandingSecurityBadges = dynamic(
+  () =>
+    import('@/components/landing/security-badges').then(
+      (mod) => mod.LandingSecurityBadges
+    ),
+  {
+    loading: () => <div className="min-h-[120px]" aria-hidden="true" />,
+  }
+);
+
+const LandingPricingSection = dynamic(
+  () =>
+    import('@/components/landing/pricing-section').then(
+      (mod) => mod.LandingPricingSection
+    ),
+  {
+    loading: () => <div className="min-h-[400px]" aria-hidden="true" />,
+  }
+);
+
+const LandingFaqSection = dynamic(
+  () =>
+    import('@/components/landing/faq-section').then(
+      (mod) => mod.LandingFaqSection
+    ),
+  {
+    loading: () => <div className="min-h-[300px]" aria-hidden="true" />,
+  }
+);
+
+const LandingCtaBanner = dynamic(
+  () =>
+    import('@/components/landing/cta-banner').then(
+      (mod) => mod.LandingCtaBanner
+    ),
+  {
+    loading: () => <div className="min-h-[200px]" aria-hidden="true" />,
   }
 );
 

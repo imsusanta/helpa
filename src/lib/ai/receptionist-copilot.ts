@@ -16,6 +16,7 @@ export interface CopilotContact {
   phone?: string | null;
   email?: string | null;
   company?: string | null;
+  metadata?: Record<string, unknown> | null;
 }
 
 export interface CopilotPatient {
@@ -90,6 +91,7 @@ export interface CopilotContactNote {
 
 export interface CopilotSourceContext {
   accountName?: string | null;
+  industry?: string | null;
   contact: CopilotContact;
   patient?: CopilotPatient | null;
   messages: CopilotMessage[];
@@ -593,21 +595,54 @@ function buildConversationSummary(
   latestText: string,
   upcoming: CopilotAppointment | null,
   latestReport: CopilotReport | null,
-  insurance: CopilotInsuranceInfo
+  insurance: CopilotInsuranceInfo,
+  industry?: string | null
 ): string {
+  const isTravel = industry === 'travel';
+  const isRealEstate = industry === 'real_estate';
+
+  if (isTravel) {
+    const parts = compact<string>([
+      latestText
+        ? `Traveler is inquiring: "${latestText.slice(0, 140)}${latestText.length > 140 ? '...' : ''}".`
+        : 'Active traveler conversation on WhatsApp.',
+      intent !== 'General Question'
+        ? `Inquiry interest: ${intent}.`
+        : 'Inquiring about destinations, itinerary plans, and packages.',
+      'Ready for customized trip proposal or package details.',
+    ]);
+    return parts.join(' ');
+  }
+
+  if (isRealEstate) {
+    const parts = compact<string>([
+      latestText
+        ? `Client is inquiring: "${latestText.slice(0, 140)}${latestText.length > 140 ? '...' : ''}".`
+        : 'Active property inquiry conversation.',
+      `Intent: ${intent}.`,
+      'Ready for site visit scheduling or property brochure sharing.',
+    ]);
+    return parts.join(' ');
+  }
+
+  const isHospital = industry === 'hospital_clinic' || industry === 'health';
+  const personLabel = isHospital ? 'patient' : 'customer';
+
   const parts = compact<string>([
     intent === 'General Question'
       ? latestText
-        ? `The patient is asking: "${latestText.slice(0, 120)}${latestText.length > 120 ? '...' : ''}".`
+        ? `The ${personLabel} is asking: "${latestText.slice(0, 120)}${latestText.length > 120 ? '...' : ''}".`
         : 'The conversation is active but has limited recent text.'
-      : `The patient appears to need help with ${intent.toLowerCase()}.`,
-    upcoming
+      : `The ${personLabel} appears to need help with ${intent.toLowerCase()}.`,
+    isHospital && upcoming
       ? `There is an upcoming appointment on ${formatDate(upcoming.appointment_date)} at ${formatTime(upcoming.appointment_time)}.`
-      : 'No upcoming appointment is currently visible.',
-    latestReport
+      : '',
+    isHospital && latestReport
       ? `Latest report is ${valueOr(latestReport.test_name)} with status ${titleCase(valueOr(latestReport.status, UNKNOWN))}.`
-      : 'No lab report is currently visible.',
-    insurance.exists ? `Insurance context: ${insurance.status}.` : '',
+      : '',
+    isHospital && insurance.exists
+      ? `Insurance context: ${insurance.status}.`
+      : '',
   ]);
   return parts.slice(0, 4).join(' ');
 }
@@ -616,67 +651,140 @@ function buildSuggestedActions(
   primaryIntent: string,
   upcoming: CopilotAppointment | null,
   latestReport: CopilotReport | null,
-  insurance: CopilotInsuranceInfo
+  insurance: CopilotInsuranceInfo,
+  industry?: string | null
 ): string[] {
-  const readyReport = latestReport?.status?.toLowerCase() === 'ready';
-  const actions = compact<string>([
-    primaryIntent === 'Emergency Inquiry' ? 'Call Patient' : '',
-    primaryIntent === 'Emergency Inquiry' ? 'Transfer to Doctor' : '',
-    primaryIntent === 'Medical Advice Request' ? 'Transfer to Doctor' : '',
-    primaryIntent.includes('Reschedule') ? 'Reschedule Appointment' : '',
-    primaryIntent.includes('Cancel') ? 'Cancel Appointment' : '',
-    primaryIntent.includes('Appointment') && !upcoming
-      ? 'Book Appointment'
-      : '',
-    upcoming ? 'Confirm Appointment' : '',
-    upcoming ? 'Resend Appointment Slip' : '',
-    primaryIntent === 'Report Inquiry' && readyReport ? 'Send Report' : '',
-    primaryIntent === 'Report Inquiry' && !readyReport
-      ? 'Check Report Status'
-      : '',
-    primaryIntent === 'Insurance Inquiry' || insurance.exists
-      ? 'Collect Insurance Details'
-      : '',
-    'Open Patient Profile',
-  ]);
-  return Array.from(new Set(actions)).slice(0, 7);
+  if (industry === 'travel') {
+    return [
+      'Send Trip Proposal',
+      'View Tour Packages',
+      'Share Itinerary on WhatsApp',
+      'Follow-up Traveler',
+      'Open Traveler Profile',
+    ];
+  }
+
+  if (industry === 'real_estate') {
+    return [
+      'Schedule Site Visit',
+      'Share Property Brochure',
+      'Create Deal',
+      'Follow-up Client',
+      'Open Client Profile',
+    ];
+  }
+
+  if (industry === 'salon') {
+    return [
+      'Book Appointment',
+      'Share Service Menu',
+      'Follow-up Client',
+      'Open Client Profile',
+    ];
+  }
+
+  const isHospital = industry === 'hospital_clinic' || industry === 'health';
+  if (isHospital) {
+    const readyReport = latestReport?.status?.toLowerCase() === 'ready';
+    const actions = compact<string>([
+      primaryIntent === 'Emergency Inquiry' ? 'Call Patient' : '',
+      primaryIntent === 'Emergency Inquiry' ? 'Transfer to Doctor' : '',
+      primaryIntent === 'Medical Advice Request' ? 'Transfer to Doctor' : '',
+      primaryIntent.includes('Reschedule') ? 'Reschedule Appointment' : '',
+      primaryIntent.includes('Cancel') ? 'Cancel Appointment' : '',
+      primaryIntent.includes('Appointment') && !upcoming
+        ? 'Book Appointment'
+        : '',
+      upcoming ? 'Confirm Appointment' : '',
+      upcoming ? 'Resend Appointment Slip' : '',
+      primaryIntent === 'Report Inquiry' && readyReport ? 'Send Report' : '',
+      primaryIntent === 'Report Inquiry' && !readyReport
+        ? 'Check Report Status'
+        : '',
+      primaryIntent === 'Insurance Inquiry' || insurance.exists
+        ? 'Collect Insurance Details'
+        : '',
+      'Open Patient Profile',
+    ]);
+    return Array.from(new Set(actions)).slice(0, 7);
+  }
+
+  return [
+    'Create Deal',
+    'Send Quotation',
+    'Schedule Follow-up',
+    'Open Contact Profile',
+  ];
 }
 
 function buildSuggestedReply(
   patientName: string,
   primaryIntent: string,
   upcoming: CopilotAppointment | null,
-  latestReport: CopilotReport | null
+  latestReport: CopilotReport | null,
+  industry?: string | null
 ): string {
   const greetingName = patientName === UNKNOWN ? '' : ` ${patientName}`;
-  if (primaryIntent === 'Emergency Inquiry') {
-    return `Hello${greetingName}, this may need urgent medical attention. Please call emergency services or visit the nearest emergency department immediately. I will also alert our clinical team so a doctor or staff member can take over.`;
-  }
-  if (primaryIntent === 'Medical Advice Request') {
-    return `Hello${greetingName}, I can help with appointments, reports, and hospital coordination, but a doctor must advise on diagnosis, medicines, treatment, or report interpretation. Would you like me to connect you with the doctor or book a consultation?`;
-  }
-  if (
-    primaryIntent.includes('Appointment') ||
-    primaryIntent.includes('Consultation')
-  ) {
-    if (upcoming) {
-      return `Hello${greetingName}, your appointment is scheduled for ${formatDate(upcoming.appointment_date)} at ${formatTime(upcoming.appointment_time)} with ${doctorName(upcoming.doctor)} in ${valueOr(upcoming.department, doctorDepartment(upcoming.doctor))}. Token number: ${upcoming.token_number ?? 'not assigned yet'}. Please confirm if you would like to keep this slot or make a change.`;
+
+  if (industry === 'travel') {
+    const lower = primaryIntent.toLowerCase();
+    if (
+      lower.includes('price') ||
+      lower.includes('cost') ||
+      lower.includes('quote')
+    ) {
+      return `Hello${greetingName}, we would love to arrange your trip! We offer customized packages including comfortable hotels, private sightseeing cabs, and meals. Could you please let us know your planned travel dates and number of guests so we can share a detailed quote?`;
     }
-    return `Hello${greetingName}, I can help book your consultation. Please share your preferred date, time, doctor or department, and patient name so we can check the available slots.`;
-  }
-  if (primaryIntent === 'Report Inquiry') {
-    if (latestReport?.status?.toLowerCase() === 'ready') {
-      return `Hello${greetingName}, your ${valueOr(latestReport.test_name, 'latest')} report is marked ready. I can verify your details and share the report through the approved hospital process.`;
+    if (
+      lower.includes('package') ||
+      lower.includes('itinerary') ||
+      lower.includes('plan')
+    ) {
+      return `Hello${greetingName}, thank you for reaching out! We have fantastic tour packages for Darjeeling, Kashmir, Goa, and customized destinations. Would you like me to share a day-wise itinerary and proposal with you?`;
     }
-    if (latestReport) {
-      return `Hello${greetingName}, your ${valueOr(latestReport.test_name, 'latest')} report is currently ${titleCase(valueOr(latestReport.status, 'in progress'))}. We will update you as soon as it is ready.`;
+    return `Hello${greetingName}, thank you for contacting us! How can we assist you with your holiday plans, hotel bookings, or sightseeing packages today?`;
+  }
+
+  if (industry === 'real_estate') {
+    return `Hello${greetingName}, thank you for reaching out to us! Are you looking to buy, rent, or schedule a site visit for any specific residential or commercial property? Please share your preferred location and budget range.`;
+  }
+
+  if (industry === 'salon') {
+    return `Hello${greetingName}, thank you for reaching out! Would you like to schedule an appointment for hair styling, skin care, or beauty treatments? Please share your preferred date and time.`;
+  }
+
+  const isHospital = industry === 'hospital_clinic' || industry === 'health';
+  if (isHospital) {
+    if (primaryIntent === 'Emergency Inquiry') {
+      return `Hello${greetingName}, this may need urgent medical attention. Please call emergency services or visit the nearest emergency department immediately. I will also alert our clinical team so a doctor or staff member can take over.`;
     }
-    return `Hello${greetingName}, I do not see a report linked here yet. Please share the test name or report booking details so I can check the status.`;
+    if (primaryIntent === 'Medical Advice Request') {
+      return `Hello${greetingName}, I can help with appointments, reports, and hospital coordination, but a doctor must advise on diagnosis, medicines, treatment, or report interpretation. Would you like me to connect you with the doctor or book a consultation?`;
+    }
+    if (
+      primaryIntent.includes('Appointment') ||
+      primaryIntent.includes('Consultation')
+    ) {
+      if (upcoming) {
+        return `Hello${greetingName}, your appointment is scheduled for ${formatDate(upcoming.appointment_date)} at ${formatTime(upcoming.appointment_time)} with ${doctorName(upcoming.doctor)} in ${valueOr(upcoming.department, doctorDepartment(upcoming.doctor))}. Token number: ${upcoming.token_number ?? 'not assigned yet'}. Please confirm if you would like to keep this slot or make a change.`;
+      }
+      return `Hello${greetingName}, I can help book your consultation. Please share your preferred date, time, doctor or department, and patient name so we can check the available slots.`;
+    }
+    if (primaryIntent === 'Report Inquiry') {
+      if (latestReport?.status?.toLowerCase() === 'ready') {
+        return `Hello${greetingName}, your ${valueOr(latestReport.test_name, 'latest')} report is marked ready. I can verify your details and share the report through the approved hospital process.`;
+      }
+      if (latestReport) {
+        return `Hello${greetingName}, your ${valueOr(latestReport.test_name, 'latest')} report is currently ${titleCase(valueOr(latestReport.status, 'in progress'))}. We will update you as soon as it is ready.`;
+      }
+      return `Hello${greetingName}, I do not see a report linked here yet. Please share the test name or report booking details so I can check the status.`;
+    }
+    if (primaryIntent === 'Insurance Inquiry') {
+      return `Hello${greetingName}, please share your insurance provider, policy or card details, and any required documents. We can check cashless availability, but final approval depends on your insurer and policy terms.`;
+    }
   }
-  if (primaryIntent === 'Insurance Inquiry') {
-    return `Hello${greetingName}, please share your insurance provider, policy or card details, and any required documents. We can check cashless availability, but final approval depends on your insurer and policy terms.`;
-  }
-  return `Hello${greetingName}, thanks for your message. I will check the patient details and help you with the next step. Could you please confirm the appointment, report, or billing detail you need help with?`;
+
+  return `Hello${greetingName}, thank you for reaching out! How can we assist you with our services today?`;
 }
 
 function buildInternalNotes(
@@ -890,35 +998,62 @@ export function buildFallbackCopilotSnapshot(
         emptyMessage: 'No reports available.',
       };
 
-  const patientSummary = compact<string>([
-    appointments.length > 0 || context.patient
-      ? 'Returning patient'
-      : 'New patient',
-    lastVisit
-      ? `Last visit: ${formatDate(lastVisit.appointment_date)} with ${doctorName(lastVisit.doctor)}`
-      : '',
-    intent.label !== 'General Question' ? `Current need: ${intent.label}` : '',
-    latestReport
-      ? `${valueOr(latestReport.test_name, 'Latest report')}: ${reportInfo.status}`
-      : '',
-    upcoming
-      ? `Waiting for ${formatDate(upcoming.appointment_date)} appointment`
-      : 'No upcoming appointment on file',
-    insuranceInfo.exists
-      ? `Insurance mentioned: ${insuranceInfo.provider}`
-      : '',
-  ]).slice(0, 6);
+  const isTravel = context.industry === 'travel';
+  const isRealEstate = context.industry === 'real_estate';
+  const isHospital =
+    context.industry === 'hospital_clinic' || context.industry === 'health';
+
+  const patientSummary = isTravel
+    ? compact<string>([
+        'Traveler inquiry active on WhatsApp',
+        context.contact.metadata?.destination
+          ? `Interested in: ${String(context.contact.metadata.destination)}`
+          : 'Exploring tour destinations & holiday packages',
+        'Customized day-wise itinerary & quote requested',
+        'Awaiting trip proposal / booking confirmation',
+      ])
+    : isRealEstate
+      ? compact<string>([
+          'Property inquiry active on WhatsApp',
+          'Location & budget discovery in progress',
+          'Ready for site visit coordination',
+        ])
+      : isHospital
+        ? compact<string>([
+            appointments.length > 0 || context.patient
+              ? 'Returning patient'
+              : 'New patient',
+            lastVisit
+              ? `Last visit: ${formatDate(lastVisit.appointment_date)} with ${doctorName(lastVisit.doctor)}`
+              : '',
+            intent.label !== 'General Question'
+              ? `Current need: ${intent.label}`
+              : '',
+            latestReport
+              ? `${valueOr(latestReport.test_name, 'Latest report')}: ${reportInfo.status}`
+              : '',
+            upcoming
+              ? `Waiting for ${formatDate(upcoming.appointment_date)} appointment`
+              : 'No upcoming appointment on file',
+            insuranceInfo.exists
+              ? `Insurance mentioned: ${insuranceInfo.provider}`
+              : '',
+          ]).slice(0, 6)
+        : compact<string>([
+            'Customer conversation active on WhatsApp',
+            'Reviewing inquiry & service requirements',
+          ]);
 
   const userRequestsHuman =
     /\b(human|agent|representative|speak to someone|talk to doctor|call me)\b/i.test(
       latestText
     );
-  const isEmergency = EMERGENCY_KEYWORDS.some((kw) =>
-    latestText.toLowerCase().includes(kw)
-  );
-  const isMedicalAdvice = MEDICAL_ADVICE_KEYWORDS.some((kw) =>
-    latestText.toLowerCase().includes(kw)
-  );
+  const isEmergency =
+    isHospital &&
+    EMERGENCY_KEYWORDS.some((kw) => latestText.toLowerCase().includes(kw));
+  const isMedicalAdvice =
+    isHospital &&
+    MEDICAL_ADVICE_KEYWORDS.some((kw) => latestText.toLowerCase().includes(kw));
   const isLowConfidence = intent.score < 70;
 
   const humanHandoffRecommended =
@@ -928,14 +1063,20 @@ export function buildFallbackCopilotSnapshot(
     : isMedicalAdvice
       ? 'Medical advice or diagnosis requested. Escalation to licensed doctor required.'
       : userRequestsHuman
-        ? 'Patient explicitly requested to speak with human staff.'
+        ? 'Customer explicitly requested to speak with human staff.'
         : isLowConfidence
           ? 'Low AI confidence score (<70%). Staff review recommended.'
           : undefined;
 
   let followUpSuggestion =
-    'Review conversation status in 24 hours if patient sends a follow-up query.';
-  if (upcoming) {
+    'Review conversation status in 24 hours if customer sends a follow-up query.';
+  if (isTravel) {
+    followUpSuggestion =
+      'Follow up with traveler in 24 hours with package itinerary and quotation.';
+  } else if (isRealEstate) {
+    followUpSuggestion =
+      'Follow up with client in 24 hours to schedule property site visit.';
+  } else if (upcoming) {
     followUpSuggestion = `Send automated appointment confirmation reminder 2 hours prior to ${formatDate(upcoming.appointment_date)}.`;
   } else if (
     latestReport &&
@@ -962,19 +1103,22 @@ export function buildFallbackCopilotSnapshot(
       latestText,
       upcoming,
       latestReport,
-      insuranceInfo
+      insuranceInfo,
+      context.industry
     ),
     suggestedReply: buildSuggestedReply(
       patientName,
       intent.label,
       upcoming,
-      latestReport
+      latestReport,
+      context.industry
     ),
     suggestedActions: buildSuggestedActions(
       intent.label,
       upcoming,
       latestReport,
-      insuranceInfo
+      insuranceInfo,
+      context.industry
     ),
     followUpSuggestion,
     humanHandoffRecommended,

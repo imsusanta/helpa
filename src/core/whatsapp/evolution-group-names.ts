@@ -39,7 +39,7 @@ const contactListCache = new Map<
   }
 >();
 const GROUP_LIST_CACHE_MS = 60_000;
-const SYNC_TIMEOUT_MS = 6_000;
+const _SYNC_TIMEOUT_MS = 6_000;
 const INFO_CONCURRENCY = 4;
 const MAX_LEFTOVER_LOOKUPS = 25;
 const MAX_AVATAR_LOOKUPS = 12;
@@ -584,6 +584,16 @@ export async function syncEvolutionGroupNamesForInbox(
   const names = new Map<string, string>();
   const avatars = new Map<string, string>();
   if (!accountId) return { names, avatars };
+
+  try {
+    const config = await loadCanonicalWhatsAppConfig(accountId);
+    if (!config || config.providerKind !== 'evolution') {
+      return { names, avatars };
+    }
+  } catch {
+    return { names, avatars };
+  }
+
   const work = collectEvolutionGroupNames(
     accountId,
     names,
@@ -592,7 +602,7 @@ export async function syncEvolutionGroupNamesForInbox(
   ).catch(() => undefined);
   await Promise.race([
     work,
-    new Promise<void>((resolve) => setTimeout(resolve, SYNC_TIMEOUT_MS)),
+    new Promise<void>((resolve) => setTimeout(resolve, 300)),
   ]);
   const identity = { names: new Map(names), avatars: new Map(avatars) };
   identityCache.set(accountId, { at: Date.now(), identity });

@@ -65,6 +65,9 @@ import { TemplatePicker } from './template-picker';
 import { buildReplyPreview } from './reply-quote';
 import { toast } from 'sonner';
 import { mergeMessages } from '@/lib/inbox/merge';
+import { conversationMessagesCache } from '@/lib/inbox/client-cache';
+
+let cachedMembersList: Profile[] | null = null;
 
 interface ReplyDraft {
   id: string;
@@ -266,10 +269,12 @@ export function MessageThread({
   const [replyTo, setReplyTo] = useState<ReplyDraft | null>(null);
   const [aiToggleDialogOpen, setAiToggleDialogOpen] = useState(false);
 
-  // Profiles are bounded by RLS to rows the current user is allowed to
-  // see — today that's just the current user, but the dropdown keeps the
-  // shape ready for shared-team workspaces without a refactor.
+  // Cached members across conversation switches
   useEffect(() => {
+    if (cachedMembersList !== null) {
+      setProfiles(cachedMembersList);
+      return;
+    }
     let cancelled = false;
     fetch('/api/account/members', {
       credentials: 'include',
@@ -280,24 +285,24 @@ export function MessageThread({
         if (cancelled) return;
         const members = json.members || [];
         const profs = members.map(
-          (
-            m: {
-              user_id?: string;
-              full_name?: string;
-              email?: string;
-              avatar_url?: string;
-              role?: string;
-              joined_at?: string;
-            }
-          ) => ({
-          id: m.user_id,
-          user_id: m.user_id,
-          full_name: m.full_name,
-          email: m.email,
-          avatar_url: m.avatar_url,
-          role: m.role,
-          created_at: m.joined_at,
-        }));
+          (m: {
+            user_id?: string;
+            full_name?: string;
+            email?: string;
+            avatar_url?: string;
+            role?: string;
+            joined_at?: string;
+          }) => ({
+            id: m.user_id,
+            user_id: m.user_id,
+            full_name: m.full_name,
+            email: m.email,
+            avatar_url: m.avatar_url,
+            role: m.role,
+            created_at: m.joined_at,
+          })
+        );
+        cachedMembersList = profs as Profile[];
         setProfiles(profs as Profile[]);
       })
       .catch((err) => {
@@ -334,6 +339,22 @@ export function MessageThread({
 
     let cancelled = false;
 
+    // Check if we have cached messages for this conversation for 0ms instant display
+    const cachedForConv = conversationMessagesCache.get(conversationId);
+    if (cachedForConv && cachedForConv.length > 0) {
+      onMessagesLoadedRef.current(cachedForConv);
+      setLoading(false);
+    } else {
+      const existingInProps = messagesRef.current.filter(
+        (m) => m.conversation_id === conversationId
+      );
+      if (existingInProps.length > 0) {
+        setLoading(false);
+      } else {
+        setLoading(true);
+      }
+    }
+
     const areMessagesEqual = (a: Message[], b: Message[]): boolean => {
       if (a.length !== b.length) return false;
       for (let i = 0; i < a.length; i++) {
@@ -349,7 +370,9 @@ export function MessageThread({
     };
 
     const fetchMsgs = async (isBackground = false) => {
-      if (!isBackground) setLoading(true);
+      if (!isBackground && !conversationMessagesCache.has(conversationId)) {
+        setLoading(true);
+      }
 
       try {
         const res = await fetch(
@@ -385,6 +408,7 @@ export function MessageThread({
             (message) => message.conversation_id === conversationId
           );
           const mergedMsgs = mergeMessages(currentForConversation, msgs);
+          conversationMessagesCache.set(conversationId, mergedMsgs);
 
           if (
             isBackground &&
@@ -405,7 +429,7 @@ export function MessageThread({
       }
     };
 
-    void fetchMsgs(false);
+    void fetchMsgs(Boolean(cachedForConv && cachedForConv.length > 0));
 
     // Periodic safety-net poll every 10 seconds for active thread
     const interval = setInterval(() => {
@@ -790,7 +814,10 @@ export function MessageThread({
       }
 
       if (onConversationUpdate) {
-        onConversationUpdate(conversation.id, { ai_chat_enabled: nextState });
+        onConversationUpdate(conversation.id, {
+          ai_chat_enabled: nextState,
+          ...(nextState ? { ai_handoff_required: false } : {}),
+        });
       }
       toast.success(`AI Chat mode turned ${nextState ? 'ON' : 'OFF'}`);
     } catch (error) {

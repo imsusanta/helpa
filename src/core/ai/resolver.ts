@@ -28,11 +28,11 @@ import {
 } from './failover-state';
 
 const PROVIDER_ORDER: AiProviderName[] = [
-  'cloudflare',
   'openrouter',
+  'cloudflare',
   'orcarouter',
 ];
-const MAX_PRIMARY_ATTEMPTS = 2;
+const MAX_PRIMARY_ATTEMPTS = 1;
 const MAX_FALLBACK_ATTEMPTS = 1;
 const RATE_LIMIT_COOLDOWN_MS = 30 * 60 * 1000;
 const TRANSIENT_COOLDOWN_MS = 10 * 60 * 1000;
@@ -92,7 +92,7 @@ export async function resolveAccountAiConfig(
   accountId?: string,
   overrides?: Partial<ProviderResolutionParams>
 ): Promise<ResolvedProviderConfig> {
-  let primaryName: AiProviderName = overrides?.primaryProvider || 'cloudflare';
+  let primaryName: AiProviderName = overrides?.primaryProvider || 'openrouter';
   let fallbackName: AiProviderName | 'none' =
     overrides?.fallbackProvider ?? 'none';
   let configuredFallbacks: AiProviderName[] = [];
@@ -486,13 +486,22 @@ export async function executeAiCompletionWithFallback({
 
   let lastError: HelpaAiError | null = null;
 
+  const cooldowns = await loadProviderCooldowns();
+  const hasHealthyCandidate = candidates.some(
+    (c) =>
+      !isProviderCoolingDown(
+        c.entry.provider.name as AiProviderName,
+        cooldowns
+      ) && Boolean(c.entry.apiKey?.trim())
+  );
+
   for (const candidate of candidates) {
     const { entry, attempts } = candidate;
     const providerName = entry.provider.name as AiProviderName;
 
     if (!entry.apiKey?.trim()) continue;
 
-    if (isProviderCoolingDown(providerName, await loadProviderCooldowns())) {
+    if (hasHealthyCandidate && isProviderCoolingDown(providerName, cooldowns)) {
       console.warn(
         `[AI Failover] Skipping cooling-down provider: ${providerName}`
       );

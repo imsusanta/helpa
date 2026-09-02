@@ -58,6 +58,21 @@ function payloadData(
   return asRecord(data);
 }
 
+function isLidJid(jid: string): boolean {
+  return String(jid || '')
+    .toLowerCase()
+    .includes('@lid');
+}
+
+function isCollectiveJid(jid: string): boolean {
+  const lower = String(jid || '').toLowerCase();
+  return (
+    lower.includes('@g.us') ||
+    lower.includes('@newsletter') ||
+    lower.includes('@broadcast')
+  );
+}
+
 function extractMessageKey(data: Record<string, unknown>): {
   id: string;
   fromMe: boolean;
@@ -74,7 +89,8 @@ function extractMessageKey(data: Record<string, unknown>): {
     data.fromMe ??
     data.IsFromMe
   );
-  const remoteJid = firstString(
+
+  const rawJid = firstString(
     key.remoteJid,
     key.RemoteJid,
     info.Chat,
@@ -82,6 +98,34 @@ function extractMessageKey(data: Record<string, unknown>): {
     data.remoteJid,
     data.chat
   );
+
+  // If the chat is a group or channel, the collective JID is the correct remoteJid
+  if (isCollectiveJid(rawJid)) {
+    return { id, fromMe, remoteJid: rawJid };
+  }
+
+  // Check all available candidate JIDs
+  const candidateJids = [
+    firstString(key.remoteJidAlt, key.RemoteJidAlt, key.remoteJidPn),
+    firstString(key.participantAlt, key.ParticipantAlt, key.participantPn),
+    firstString(info.SenderAlt, info.senderAlt, info.SenderPn),
+    firstString(data.senderPn, data.senderPhone, data.sender),
+    rawJid,
+    firstString(key.participant, key.Participant, info.Sender, info.sender),
+  ].filter(Boolean);
+
+  // Prioritize standard phone JID (@s.whatsapp.net / @c.us) over @lid
+  let remoteJid = candidateJids.find(
+    (j) =>
+      !isLidJid(j) && (j.includes('@s.whatsapp.net') || j.includes('@c.us'))
+  );
+  if (!remoteJid) {
+    remoteJid = candidateJids.find((j) => !isLidJid(j));
+  }
+  if (!remoteJid) {
+    remoteJid = candidateJids[0] || '';
+  }
+
   return { id, fromMe, remoteJid };
 }
 

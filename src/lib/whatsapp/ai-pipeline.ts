@@ -22,7 +22,8 @@ export function shouldSkipAiConversation(
   if (
     conversation.ai_chat_enabled === false ||
     conversation.ai_autoreply_disabled === true ||
-    conversation.is_ai_enabled === false
+    conversation.is_ai_enabled === false ||
+    conversation.ai_handoff_required === true
   ) {
     return { skip: true, reason: 'disabled' };
   }

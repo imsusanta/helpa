@@ -105,7 +105,7 @@ export async function triggerAiResponse(
       .eq('conversation_id', conversationId)
       .eq('account_id', accountId)
       .order('created_at', { ascending: false })
-      .limit(50),
+      .limit(15),
     db
       .from('knowledge_base')
       .select('category, question_title, answer_content')
@@ -250,12 +250,14 @@ export async function triggerAiResponse(
     feature: 'AI_REPLY',
   });
   const hasValidKey = Boolean(
-    aiResolved.primary.apiKey || aiResolved.fallback?.apiKey
+    aiResolved.primary.apiKey ||
+    aiResolved.fallback?.apiKey ||
+    aiResolved.fallbacks.some((f) => Boolean(f.apiKey?.trim()))
   );
 
   if (!hasValidKey) {
     console.warn(
-      '[AI Assistant] Neither OpenRouter nor OrcaRouter API credentials configured in Super Admin settings, environment, or account for account:',
+      '[AI Assistant] No AI provider API credentials configured in Super Admin settings, environment, or account for account:',
       accountId
     );
     return;
@@ -561,7 +563,8 @@ export async function triggerAiResponse(
       messages: apiMessages,
       options: {
         temperature: 0.2,
-        maxTokens: 1200,
+        maxTokens: 600,
+        timeoutMs: 20000,
         responseFormat: { type: 'json_object' },
       },
       resolutionParams: {
@@ -580,7 +583,8 @@ export async function triggerAiResponse(
         messages: apiMessages,
         options: {
           temperature: 0.2,
-          maxTokens: 1200,
+          maxTokens: 600,
+          timeoutMs: 20000,
         },
         resolutionParams: {
           accountId,

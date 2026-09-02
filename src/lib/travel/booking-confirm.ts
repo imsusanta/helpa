@@ -65,7 +65,11 @@ export type TravelBookingConfirmResult =
   | { status: 'no_pending' }
   | {
       status: 'unavailable';
-      reason: 'package_inactive' | 'travel_date_past' | 'departure_unavailable' | 'invalid_guests';
+      reason:
+        | 'package_inactive'
+        | 'travel_date_past'
+        | 'departure_unavailable'
+        | 'invalid_guests';
       packageName: string;
     }
   | {
@@ -449,11 +453,7 @@ async function resolveDraftPackageDetail(
 ): Promise<TourPackageDetail | null> {
   const db = getAdminClient();
   if (draft.package_id) {
-    const detail = await getTourPackageDetail(
-      db,
-      accountId,
-      draft.package_id
-    );
+    const detail = await getTourPackageDetail(db, accountId, draft.package_id);
     if (detail) return detail;
   }
   if (draft.package_name && draft.package_name !== 'the package we discussed') {
@@ -537,7 +537,10 @@ export async function confirmPendingTravelBooking(opts: {
       packageName: detail.name,
     };
   }
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(draft.travel_date) || draft.travel_date < today) {
+  if (
+    !/^\d{4}-\d{2}-\d{2}$/.test(draft.travel_date) ||
+    draft.travel_date < today
+  ) {
     return {
       status: 'unavailable',
       reason: 'travel_date_past',
@@ -552,9 +555,8 @@ export async function confirmPendingTravelBooking(opts: {
     };
   }
   const departure =
-    detail.departures.find(
-      (row) => row.departure_date === draft.travel_date
-    ) ?? null;
+    detail.departures.find((row) => row.departure_date === draft.travel_date) ??
+    null;
   if (departure && !isDepartureBookable(departure)) {
     return {
       status: 'unavailable',
@@ -703,7 +705,10 @@ export async function sendTravelBookingConfirmTemplate(opts: {
 }
 
 const UNAVAILABLE_REASONS: Record<
-  'package_inactive' | 'travel_date_past' | 'departure_unavailable' | 'invalid_guests',
+  | 'package_inactive'
+  | 'travel_date_past'
+  | 'departure_unavailable'
+  | 'invalid_guests',
   string
 > = {
   package_inactive: 'This package is no longer available.',

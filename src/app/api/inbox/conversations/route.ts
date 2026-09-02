@@ -121,7 +121,7 @@ export async function GET(request: NextRequest) {
     const supabase = getSupabaseAdminClient();
     let query = supabase
       .from('conversations')
-      .select('*')
+      .select('*, contact:contacts(*)')
       .eq('account_id', accountId)
       .order('updated_at', { ascending: false })
       .limit(fetchLimit);
@@ -150,41 +150,54 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    const contactIds = Array.from(
+    const missingContactIds = Array.from(
       new Set(
         convs
+          .filter((c) => !c.contact)
           .map((c) => (c.contact_id || c.contactId) as string)
           .filter(Boolean)
       )
     );
 
-    const contactsMap = new Map<string, Contact>();
-    if (contactIds.length > 0) {
+    const rawContactsById = new Map<string, Record<string, unknown>>();
+    for (const conv of convs) {
+      const embedded = conv.contact as Record<string, unknown> | null;
+      if (embedded?.id) {
+        rawContactsById.set(String(embedded.id), embedded);
+      }
+    }
+    if (missingContactIds.length > 0) {
       const { data: contactsData } = await supabase
         .from('contacts')
         .select('*')
         .eq('account_id', accountId)
-        .in('id', contactIds);
+        .in('id', missingContactIds);
 
-      const contacts = hydrateInboxContactsFromCache(
-        accountId,
-        contactsData || []
-      );
-      runAfterResponse(() => {
-        scheduleInboxGroupNameSync(accountId, contacts);
-      });
-      for (const contact of contacts) {
-        contactsMap.set(contact.id, normalizeContact(contact));
+      for (const contact of contactsData || []) {
+        rawContactsById.set(contact.id, contact);
       }
     }
+
+    const rawContacts = Array.from(rawContactsById.values());
+    hydrateInboxContactsFromCache(accountId, rawContacts);
+    runAfterResponse(() => {
+      scheduleInboxGroupNameSync(accountId, rawContacts);
+    });
 
     const normalized = convs
       .map((c) => {
         const cId = (c.contact_id || c.contactId) as string;
-        let contact = cId ? contactsMap.get(cId) : undefined;
-        if (!contact && cId) {
+        const rawContact = (c.contact ||
+          (cId ? rawContactsById.get(cId) : null)) as Record<
+          string,
+          unknown
+        > | null;
+        let contact: Contact | undefined;
+        if (rawContact) {
+          contact = normalizeContact(rawContact);
+        } else {
           contact = {
-            id: cId,
+            id: cId || '',
             account_id: accountId,
             user_id: '',
             name: whatsappContactDisplayName(

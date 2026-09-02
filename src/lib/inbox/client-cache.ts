@@ -1,5 +1,7 @@
 import type { Message } from '@/types';
 
+export const conversationMessagesCache = new Map<string, Message[]>();
+
 const OPTIMISTIC_ID_PREFIX = 'temp-';
 const RECONCILE_WINDOW_MS = 2 * 60 * 1000;
 

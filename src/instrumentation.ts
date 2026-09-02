@@ -9,9 +9,8 @@
 
 export async function register() {
   if (process.env.NEXT_RUNTIME === 'nodejs') {
-    const { registerIndustryModulePort } = await import(
-      './modules/industry-port'
-    );
+    const { registerIndustryModulePort } =
+      await import('./modules/industry-port');
     registerIndustryModulePort();
   }
 }
