@@ -48,7 +48,7 @@ export async function GET(
     // 1. Fetch Lead with linked contact
     const { data: lead, error: leadErr } = await supabase
       .from('leads')
-      .select('*, contacts(*)')
+      .select('*, contacts:contact_id(*)')
       .eq('id', leadId)
       .eq('account_id', ctx.accountId)
       .maybeSingle();

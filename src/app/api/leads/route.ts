@@ -55,7 +55,7 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
 
     let query = supabase
       .from('leads')
-      .select('*, contacts(*)', { count: 'exact' })
+      .select('*, contacts:contact_id(*)', { count: 'exact' })
       .eq('account_id', ctx.accountId);
 
     if (stage && stage !== 'all') {
@@ -225,7 +225,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
         notes: notes ? String(notes).trim() : null,
         metadata: metadata || {},
       })
-      .select('*, contacts(*)')
+      .select('*, contacts:contact_id(*)')
       .single();
 
     if (insertError || !newLead) {

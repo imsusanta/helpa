@@ -104,7 +104,7 @@ export async function POST(
       })
       .eq('id', id)
       .eq('account_id', ctx.accountId)
-      .select('*, contacts(*)')
+      .select('*, contacts:contact_id(*)')
       .single();
 
     if (updateErr || !updatedLead) {

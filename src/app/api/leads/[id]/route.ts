@@ -45,7 +45,7 @@ export async function GET(
 
     const { data: lead, error } = await supabase
       .from('leads')
-      .select('*, contacts(*)')
+      .select('*, contacts:contact_id(*)')
       .eq('id', id)
       .eq('account_id', ctx.accountId)
       .maybeSingle();
@@ -163,7 +163,7 @@ export async function PUT(
       .update(updates)
       .eq('id', id)
       .eq('account_id', ctx.accountId)
-      .select('*, contacts(*)')
+      .select('*, contacts:contact_id(*)')
       .single();
 
     if (updateError || !updatedLead) {
