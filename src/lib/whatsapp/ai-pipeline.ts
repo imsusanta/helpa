@@ -37,6 +37,22 @@ export function shouldSkipAiConversation(
   return { skip: false };
 }
 
+/**
+ * Webhook pre-gate: whether to *call* triggerAiResponse.
+ *
+ * Do not include conversation AI-disabled flags here. Inbound persist already
+ * stamped `last_message_at` to now, so a 30-minute inactivity check against
+ * that timestamp can never resume a handed-off chat. triggerAiResponse owns
+ * pause, staff takeover, and the 30-minute auto-resume.
+ */
+export function shouldInvokeAiTrigger(opts: {
+  flowConsumed: boolean;
+  automationReplied: boolean;
+  assignedAgent: boolean;
+}): boolean {
+  return !opts.flowConsumed && !opts.automationReplied && !opts.assignedAgent;
+}
+
 export interface HistoryMessage {
   id?: string;
   sender_type: string;

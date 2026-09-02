@@ -104,4 +104,24 @@ describe('buildReceptionistSystemPrompt', () => {
     });
     expect(prompt).toContain('[PRICING] Consultation: ₹500');
   });
+
+  it('handoffs only when the customer asks for a human, not for unknown KB topics', () => {
+    const travel = buildReceptionistSystemPrompt({
+      ...BASE,
+      industry: 'travel',
+      isHospitalEnabled: false,
+      isCoachingEnabled: false,
+      isTravelEnabled: true,
+      hospitalContext: '',
+      kbContext: '',
+    });
+    expect(travel).toContain('explicitly asks to speak with a human');
+    expect(travel).toContain(
+      'Do not set handoff_required merely because a topic is complex or missing from the knowledge base'
+    );
+    expect(travel).not.toContain('HUMAN HANDOFF & UNKNOWN QUESTIONS');
+    expect(travel).not.toContain(
+      'topic whose factual answer is NOT available in the provided Knowledge Base'
+    );
+  });
 });

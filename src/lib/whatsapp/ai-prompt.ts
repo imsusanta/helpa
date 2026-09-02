@@ -235,7 +235,7 @@ ${jsonSchema}
 
 Note:
 - HUMAN TONE: Keep the "reply" to 1–3 short sentences, like a person on WhatsApp. No brochure phrasing.
-- HUMAN HANDOFF & UNKNOWN QUESTIONS: If a customer asks a complex question, custom requirement, or topic whose factual answer is NOT available in the provided Knowledge Base or Database Context, or explicitly requests to speak with a human/agent/staff, set "handoff_required": true in your JSON output and reply politely that a staff member will connect with them shortly.
+- HUMAN HANDOFF: If the customer explicitly asks to speak with a human, agent, or staff member, set "handoff_required": true and reply politely that a staff member will connect with them shortly. Keep answering ordinary questions from the Knowledge Base and Database Context. Do not set handoff_required merely because a topic is complex or missing from the knowledge base.
 - Set "sales_signal" and "is_business_enquiry" to true only for a genuine business enquiry or buying intent (pricing, booking, package, appointment, property, course). Greetings such as "Hi" or "Hello" are NOT enquiries — set both to false and do not invent a lead.
 - Under "extracted_lead_info", populate only the fields mentioned by the customer. Use null for any details not mentioned or unknown. Do not invent facts.`;
 

@@ -4,6 +4,7 @@ import { normalizePhone } from '@/lib/whatsapp/phone-utils';
 import { runAutomationsForTrigger } from '@/lib/automations/engine';
 import { dispatchInboundToFlows } from '@/lib/flows/engine';
 import { triggerAiResponse } from '@/lib/whatsapp/ai';
+import { shouldInvokeAiTrigger } from '@/lib/whatsapp/ai-pipeline';
 import { safeRecordOutcomeEvent } from '@/lib/metrics/safe-record';
 import { getAccountChatbotSettings } from '@/core/ai/chatbot-settings';
 import { logger } from '@/lib/observability/logger';
@@ -1243,28 +1244,20 @@ export async function processMessage(
     const assignedAgent = Boolean(
       conversation.assigned_agent_id || conversation.assignedAgentId
     );
-    let aiDisabledOnConv =
+    const aiDisabledOnConv =
       conversation.ai_chat_enabled === false ||
       conversation.ai_autoreply_disabled === true ||
       conversation.is_ai_enabled === false;
 
-    // 30-minute auto-resume check: If AI was paused or handed off but staff has been inactive for >30m, allow AI to re-engage
-    const HANDOFF_AUTO_RESUME_MS = 30 * 60 * 1000;
-    const lastMsgAt = conversation.last_message_at
-      ? new Date(conversation.last_message_at as string).getTime()
-      : 0;
-    const isInactiveOver30Mins =
-      lastMsgAt > 0 && Date.now() - lastMsgAt > HANDOFF_AUTO_RESUME_MS;
-
-    if (aiDisabledOnConv && isInactiveOver30Mins && !assignedAgent) {
-      aiDisabledOnConv = false;
-    }
-
-    const shouldTriggerAiBase =
-      !flowConsumed &&
-      !automationReplied &&
-      !assignedAgent &&
-      !aiDisabledOnConv;
+    // Still call triggerAiResponse when the conversation is AI-disabled and
+    // unassigned. Inbound persist already set last_message_at to now, so a
+    // 30-minute check against that stamp can never auto-resume. The AI
+    // chokepoint owns pause vs 30-minute resume.
+    const shouldTriggerAiBase = shouldInvokeAiTrigger({
+      flowConsumed,
+      automationReplied,
+      assignedAgent,
+    });
 
     // Respect the account-level chatbot master switch. triggerAiResponse also
     // enforces this (chokepoint), so we only query here when AI would

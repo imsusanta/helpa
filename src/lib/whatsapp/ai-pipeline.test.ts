@@ -9,6 +9,7 @@ import {
   outboundCreatedAtAfter,
   unansweredCustomerTurn,
   shouldSkipAiConversation,
+  shouldInvokeAiTrigger,
   unwrapNestedReply,
 } from './ai-pipeline';
 
@@ -59,6 +60,44 @@ describe('shouldSkipAiConversation', () => {
         ai_reply_count: 3,
       })
     ).toEqual({ skip: false });
+  });
+});
+
+describe('shouldInvokeAiTrigger', () => {
+  it('still invokes AI after inbound persist even when the chat is paused', () => {
+    // last_message_at is already "now" after persist; using it as a 30-minute
+    // inactivity gate would skip triggerAiResponse and block auto-resume.
+    expect(
+      shouldInvokeAiTrigger({
+        flowConsumed: false,
+        automationReplied: false,
+        assignedAgent: false,
+      })
+    ).toBe(true);
+  });
+
+  it('does not invoke AI when a human is assigned or another reply already went out', () => {
+    expect(
+      shouldInvokeAiTrigger({
+        flowConsumed: false,
+        automationReplied: false,
+        assignedAgent: true,
+      })
+    ).toBe(false);
+    expect(
+      shouldInvokeAiTrigger({
+        flowConsumed: false,
+        automationReplied: true,
+        assignedAgent: false,
+      })
+    ).toBe(false);
+    expect(
+      shouldInvokeAiTrigger({
+        flowConsumed: true,
+        automationReplied: false,
+        assignedAgent: false,
+      })
+    ).toBe(false);
   });
 });
 
