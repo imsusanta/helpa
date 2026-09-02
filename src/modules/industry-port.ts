@@ -13,11 +13,17 @@ import {
   type CoreIndustryManifest,
   type IndustryModulePort,
 } from '@/core/modules/industry-port';
+import { registerSeededKbTitles } from '@/core/modules/seeded-kb-titles';
+import {
+  registerTravelWorkflowsConfig,
+  type TravelWorkflowSeed,
+} from '@/core/modules/travel-workflows';
 import { getAdminClient } from '@/lib/db/server';
 import { matchTourPackagesForMessage } from '@/lib/travel/retrieval';
 import { buildTravelPackagePromptBlock } from '@/lib/travel/prompt';
-import { getIndustryModule, resolveSystemPrompt } from './registry';
+import { getIndustryModule, INDUSTRY_REGISTRY, resolveSystemPrompt } from './registry';
 import { resolveIndustryAlias } from './terminology';
+import { workflowsConfig } from './travel/workflows';
 
 function toCoreManifest(industry?: string | null): CoreIndustryManifest {
   const industryModule = getIndustryModule(industry);
@@ -56,6 +62,18 @@ export const modulesIndustryPort: IndustryModulePort = {
 };
 
 export function registerIndustryModulePort(): void {
+  // Register seeded KB titles from the industry registry.
+  const kbTitles = new Set<string>();
+  for (const mod of Object.values(INDUSTRY_REGISTRY)) {
+    for (const template of mod.kbTemplates ?? []) {
+      if (template.questionTitle) kbTitles.add(template.questionTitle);
+    }
+  }
+  registerSeededKbTitles(kbTitles);
+
+  // Register travel workflow seeds.
+  registerTravelWorkflowsConfig(workflowsConfig as TravelWorkflowSeed[]);
+
   // Idempotent: re-registering the same adapter is a no-op in effect.
   setIndustryModulePort(modulesIndustryPort);
 }

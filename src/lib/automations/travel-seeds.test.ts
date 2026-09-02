@@ -56,28 +56,28 @@ vi.mock('@/lib/automations/steps-tree', () => ({
   insertSteps: vi.fn(async () => null),
 }));
 
-vi.mock('@/modules/travel/workflows', () => ({
-  workflowsConfig: [
-    {
-      seedKey: 'travel_booking_confirm',
-      name: 'Booking Confirm',
-      description: 'Send confirm template',
-      trigger_type: 'keyword_match',
-      trigger_config: { keywords: ['booking confirm'] },
-      is_active: true,
-      steps: [{ step_type: 'send_message', step_config: { text: 'Confirm' } }],
-    },
-    {
-      seedKey: 'traveler_intake_greeting',
-      name: 'Traveler Intake Greeting',
-      description: 'Welcome',
-      trigger_type: 'first_inbound_message',
-      trigger_config: {},
-      is_active: true,
-      steps: [{ step_type: 'send_message', step_config: { text: 'Hi' } }],
-    },
-  ],
-}));
+import { registerTravelWorkflowsConfig } from '@/core/modules/travel-workflows';
+
+registerTravelWorkflowsConfig([
+  {
+    seedKey: 'travel_booking_confirm',
+    name: 'Booking Confirm',
+    description: 'Send confirm template',
+    trigger_type: 'keyword_match',
+    trigger_config: { keywords: ['booking confirm'] },
+    is_active: true,
+    steps: [{ step_type: 'send_message', step_config: { text: 'Confirm' } }],
+  },
+  {
+    seedKey: 'traveler_intake_greeting',
+    name: 'Traveler Intake Greeting',
+    description: 'Welcome',
+    trigger_type: 'first_inbound_message',
+    trigger_config: {},
+    is_active: true,
+    steps: [{ step_type: 'send_message', step_config: { text: 'Hi' } }],
+  },
+]);
 
 import { ensureTravelWorkflowsSeeded } from './travel-seeds';
 

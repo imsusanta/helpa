@@ -4,7 +4,7 @@ import {
   insertSteps,
   type BuilderStepInput,
 } from '@/lib/automations/steps-tree';
-import { workflowsConfig } from '@/modules/travel/workflows';
+import { getTravelWorkflowsConfig } from '@/core/modules/travel-workflows';
 
 export async function ensureTravelWorkflowsSeeded(opts: {
   accountId: string;
@@ -29,7 +29,7 @@ export async function ensureTravelWorkflowsSeeded(opts: {
   }
 
   let created = 0;
-  for (const workflow of workflowsConfig) {
+  for (const workflow of getTravelWorkflowsConfig()) {
     if (
       existingKeys.has(workflow.seedKey) ||
       existingNames.has(workflow.name.trim().toLowerCase())

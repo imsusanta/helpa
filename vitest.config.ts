@@ -15,11 +15,16 @@ export default defineConfig({
     coverage: {
       provider: 'v8',
       reporter: ['json', 'html', 'text'],
-      // Ratcheted minimum thresholds for security-critical modules (roadmap P1).
-      // Values start ~5 points below measured coverage; raise as coverage grows.
-      // Gaps still open (documented in 10-OUT-OF-10-ROADMAP.md): webhook route,
-      // inbound persistence, process-status, tenant-resolver, outbox-service.
+      // Global regression floor — conservative values below current measured coverage.
+      // As of 2026-09-01: lines 59.12%, statements 57.78%, functions 59.94%, branches 47.07%.
       thresholds: {
+        global: {
+          statements: 55,
+          lines: 55,
+          functions: 55,
+          branches: 40,
+        },
+        // Per-file thresholds for security-critical modules override the global floor.
         'src/lib/whatsapp/encryption.ts': {
           statements: 88,
           lines: 88,

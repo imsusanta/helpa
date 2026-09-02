@@ -1,4 +1,4 @@
-import { INDUSTRY_REGISTRY } from '@/modules/registry';
+import { getSeededKbTitles } from '@/core/modules/seeded-kb-titles';
 
 export const COMPANY_HOURS_TITLE =
   'Where are you located and what are your business hours?';
@@ -12,10 +12,8 @@ export function collectSeededKnowledgeTitles(): Set<string> {
   if (cachedTitles) return cachedTitles;
 
   const titles = new Set<string>([COMPANY_HOURS_TITLE]);
-  for (const industryModule of Object.values(INDUSTRY_REGISTRY)) {
-    for (const template of industryModule.kbTemplates ?? []) {
-      if (template.questionTitle) titles.add(template.questionTitle);
-    }
+  for (const t of getSeededKbTitles()) {
+    titles.add(t);
   }
   cachedTitles = titles;
   return titles;
