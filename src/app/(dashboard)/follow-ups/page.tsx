@@ -612,9 +612,13 @@ export default function FollowupsPage() {
                   -- Choose {terminology.contact || 'Patient'} --
                 </option>
                 {patients.map((p) => {
-                  const seq = p.metadata?.patient_id
-                    ? `[${p.metadata.patient_id}] `
-                    : '';
+                  const isHospital =
+                    currentIndustry === 'hospital_clinic' ||
+                    currentIndustry === 'hospital-clinic';
+                  const seq =
+                    isHospital && p.metadata?.patient_id
+                      ? `[${p.metadata.patient_id}] `
+                      : '';
                   return (
                     <option key={p.id} value={p.id}>
                       {seq}

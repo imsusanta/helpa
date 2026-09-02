@@ -71,7 +71,9 @@ export function ContactDetailView({
   const router = useRouter();
   const appwrite = useMemo(() => createClient(), []);
   const { accountId, defaultCurrency, account } = useAuth();
-  const { terminology } = useWorkspace();
+  const { terminology, currentIndustry } = useWorkspace();
+  const isHospital =
+    currentIndustry === 'hospital_clinic' || currentIndustry === 'hospital-clinic';
 
   const [activeTab, setActiveTab] = useState('timeline');
   const [contact, setContact] = useState<Contact | null>(null);
@@ -138,13 +140,14 @@ export function ContactDetailView({
       }
 
       if (data) {
-        // Auto-generate patient_seq_id if missing in patients table
-        if (!pData && accountId) {
+        // Auto-generate patient_seq_id if missing in patients table (Hospital & Clinic only)
+        if (isHospital && !pData && accountId) {
           try {
             const { data: maxPatient } = await appwrite
               .from('patients')
               .select('patient_seq_id')
               .eq('account_id', accountId)
+              .order('created_at', { ascending: false })
               .limit(1)
               .maybeSingle();
 
@@ -199,12 +202,14 @@ export function ContactDetailView({
         setEditNotes(data.notes ?? '');
         setEditAssignedUserId(data.assigned_user_id ?? '');
 
-        const seq = getOrGeneratePatientId(data, pData?.patient_seq_id);
+        const seq = isHospital
+          ? getOrGeneratePatientId(data, pData?.patient_seq_id)
+          : '';
         setPatientSeqId(seq);
 
         const mergedMeta = {
           ...(data.metadata ?? {}),
-          patient_id: seq,
+          ...(seq ? { patient_id: seq } : {}),
           ...(pData?.blood_group ? { blood_group: pData.blood_group } : {}),
           ...(pData?.gender ? { gender: pData.gender } : {}),
           ...(pData?.date_of_birth ? { dob: pData.date_of_birth } : {}),
@@ -223,7 +228,7 @@ export function ContactDetailView({
     } finally {
       setLoading(false);
     }
-  }, [contactId, accountId, appwrite, terminology.person]);
+  }, [contactId, accountId, appwrite, isHospital, terminology.person]);
 
   const fetchTags = useCallback(async () => {
     if (!contactId) return;
@@ -350,7 +355,7 @@ export function ContactDetailView({
 
     setSavingDetails(true);
 
-    if (patientSeqId && contactId && accountId) {
+    if (isHospital && patientSeqId && contactId && accountId) {
       await appwrite.from('patients').upsert({
         id: contactId,
         account_id: accountId,
@@ -375,7 +380,7 @@ export function ContactDetailView({
         assigned_user_id: editAssignedUserId || null,
         metadata: {
           ...editMetadata,
-          patient_id: patientSeqId,
+          ...(isHospital && patientSeqId ? { patient_id: patientSeqId } : {}),
         },
         updated_at: new Date().toISOString(),
       })

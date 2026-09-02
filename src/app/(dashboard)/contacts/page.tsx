@@ -135,7 +135,9 @@ export default function ContactsPage() {
   // Industry-specific entity configurations
   const industryModule = getIndustryModule(account?.industry);
   const contactConfig = industryModule.entityConfigs?.contacts;
-  const { terminology } = useWorkspace();
+  const { terminology, currentIndustry } = useWorkspace();
+  const isHospital =
+    currentIndustry === 'hospital_clinic' || currentIndustry === 'hospital-clinic';
   const entityLabel = terminology.person;
   const entityLabelPlural = terminology.people;
   const _customFields = contactConfig?.fields || [];
@@ -570,20 +572,23 @@ export default function ContactsPage() {
         const meta =
           c.metadata && typeof c.metadata === 'object' ? c.metadata : {};
         const pData = patientsMap[c.id];
-        const patientIdVal = getOrGeneratePatientId(c, pData?.patient_seq_id);
+        const patientIdVal = isHospital
+          ? getOrGeneratePatientId(c, pData?.patient_seq_id)
+          : undefined;
         const metaObj = meta as Record<string, unknown>;
-        const bloodGroupVal =
-          pData?.blood_group ||
-          (metaObj.blood_group as string) ||
-          (metaObj['Blood Group'] as string) ||
-          '—';
+        const bloodGroupVal = isHospital
+          ? pData?.blood_group ||
+            (metaObj.blood_group as string) ||
+            (metaObj['Blood Group'] as string) ||
+            '—'
+          : undefined;
 
         return {
           ...c,
           metadata: {
             ...meta,
-            patient_id: patientIdVal,
-            blood_group: bloodGroupVal,
+            ...(patientIdVal ? { patient_id: patientIdVal } : {}),
+            ...(bloodGroupVal ? { blood_group: bloodGroupVal } : {}),
           },
           tags: (tagsByContact[c.id] ?? [])
             .map((tid) => currentTagsMap[tid])
@@ -599,7 +604,7 @@ export default function ContactsPage() {
     } finally {
       setLoading(false);
     }
-  }, [appwrite, page, router, search]);
+  }, [appwrite, isHospital, page, router, search]);
 
   // Load-once-on-mount-ish data fetches. Each setter inside runs
   // inside an async promise completion (appwrite await), not
