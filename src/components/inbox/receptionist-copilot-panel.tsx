@@ -4,15 +4,18 @@ import { useEffect, useMemo, useState } from 'react';
 import {
   AlertTriangle,
   Brain,
+  Building2,
   CalendarDays,
   CheckCircle2,
   ClipboardCheck,
   ClipboardList,
   Clock3,
-  FileText,
+  Compass,
   FileDown,
+  FileText,
   Loader2,
   MessageSquareReply,
+  Plane,
   RefreshCw,
   ShieldCheck,
   Sparkles,
@@ -26,6 +29,7 @@ import { toast } from 'sonner';
 
 import { Button } from '@/components/ui/button';
 import { useCan } from '@/hooks/use-can';
+import { useWorkspace } from '@/hooks/use-workspace';
 import { useRouter } from 'next/navigation';
 import { cn } from '@/lib/utils';
 import type { ReceptionistCopilotSnapshot } from '@/lib/ai/receptionist-copilot';
@@ -138,6 +142,13 @@ export function ReceptionistCopilotPanel({
 }: ReceptionistCopilotPanelProps) {
   const canSend = useCan('send-messages');
   const router = useRouter();
+  const { currentIndustry, terminology, aiRole } = useWorkspace();
+
+  const isHospital =
+    currentIndustry === 'hospital_clinic' || currentIndustry === 'health';
+  const isTravel = currentIndustry === 'travel';
+  const isRealEstate = currentIndustry === 'real_estate';
+
   const [snapshotState, setSnapshotState] = useState<{
     conversationId: string;
     snapshot: ReceptionistCopilotSnapshot;
@@ -230,10 +241,83 @@ export function ReceptionistCopilotPanel({
     toast.success('Suggested reply inserted');
   }
 
-  if (!conversation || !contact) return null;
+  const infoRows = useMemo(() => {
+    if (!contact) return [];
+    const meta = (contact.metadata as Record<string, unknown>) || {};
 
-  const patientInfoRows = snapshot
-    ? [
+    if (isTravel) {
+      return [
+        field(
+          'Name',
+          contact.name || snapshot?.patientInfo?.patientName || 'Traveler'
+        ),
+        field(
+          'Phone',
+          contact.phone || snapshot?.patientInfo?.phoneNumber || '—'
+        ),
+        field(
+          'Destination',
+          String(
+            meta.destination || meta.preferred_destination || 'Scenic Tour'
+          )
+        ),
+        field(
+          'Travel Dates',
+          String(meta.travel_dates || meta.dates || 'Upcoming')
+        ),
+        field(
+          'Group Size',
+          String(meta.group_size || meta.adults || '2 Adults')
+        ),
+        field('Budget', String(meta.budget || 'Standard / Custom')),
+        field(
+          'Language',
+          snapshot?.patientInfo?.preferredLanguage || 'English'
+        ),
+        field(
+          'Lead Score',
+          conversation?.ai_lead_score
+            ? `${conversation.ai_lead_score}/100`
+            : 'Active'
+        ),
+      ];
+    }
+
+    if (isRealEstate) {
+      return [
+        field(
+          'Name',
+          contact.name || snapshot?.patientInfo?.patientName || 'Client'
+        ),
+        field(
+          'Phone',
+          contact.phone || snapshot?.patientInfo?.phoneNumber || '—'
+        ),
+        field(
+          'Property Type',
+          String(meta.property_type || 'Residential / Commercial')
+        ),
+        field('Budget', String(meta.budget || '₹50L - ₹1Cr')),
+        field('Location', String(meta.preferred_location || 'City Center')),
+        field(
+          'Language',
+          snapshot?.patientInfo?.preferredLanguage || 'English'
+        ),
+        field(
+          'Intent',
+          conversation?.ai_intent || snapshot?.intent?.label || 'Inquiry'
+        ),
+        field(
+          'Score',
+          conversation?.ai_lead_score
+            ? `${conversation.ai_lead_score}/100`
+            : 'Warm Lead'
+        ),
+      ];
+    }
+
+    if (isHospital && snapshot) {
+      return [
         field('Name', snapshot.patientInfo.patientName),
         field('Patient ID', snapshot.patientInfo.patientId),
         field('Phone', snapshot.patientInfo.phoneNumber),
@@ -242,22 +326,68 @@ export function ReceptionistCopilotPanel({
         field('Language', snapshot.patientInfo.preferredLanguage),
         field('Doctor', snapshot.patientInfo.preferredDoctor),
         field('Department', snapshot.patientInfo.preferredDepartment),
-      ]
-    : [];
+      ];
+    }
+
+    // Default general CRM
+    return [
+      field(
+        'Name',
+        contact.name || snapshot?.patientInfo?.patientName || 'Contact'
+      ),
+      field(
+        'Phone',
+        contact.phone || snapshot?.patientInfo?.phoneNumber || '—'
+      ),
+      field('Email', contact.email || '—'),
+      field('Company', String(meta.company || '—')),
+      field(
+        'Intent',
+        conversation?.ai_intent || snapshot?.intent?.label || 'Customer Inquiry'
+      ),
+      field(
+        'Score',
+        conversation?.ai_lead_score
+          ? `${conversation.ai_lead_score}/100`
+          : 'Active'
+      ),
+      field('Language', snapshot?.patientInfo?.preferredLanguage || 'English'),
+      field('Status', conversation?.status || 'open'),
+    ];
+  }, [contact, isTravel, isRealEstate, isHospital, snapshot, conversation]);
+
+  if (!conversation || !contact) return null;
+
+  const HeaderIcon = isTravel
+    ? Compass
+    : isRealEstate
+      ? Building2
+      : isHospital
+        ? Brain
+        : Sparkles;
+
+  const headerTitle = aiRole || `${terminology.person} AI Assistant`;
+  const headerSubtitle = isTravel
+    ? 'Traveler inquiries, packages & trip proposals'
+    : isHospital
+      ? 'Clinical triage, appointments & patient inquiries'
+      : isRealEstate
+        ? 'Property inquiries, site visits & matching'
+        : `AI assistant for ${terminology.people.toLowerCase()} & inquiries`;
 
   const content = (
     <>
       <div className="border-border flex shrink-0 items-center justify-between gap-2 border-b px-4 py-3">
         <div className="min-w-0">
           <div className="flex items-center gap-2">
-            <Brain className="size-4 text-emerald-600 dark:text-emerald-400" />
+            <HeaderIcon className="text-primary size-4" />
             <h3 className="text-foreground truncate text-sm font-semibold">
-              AI Assistant
+              {headerTitle}
             </h3>
           </div>
           <div className="mt-0.5 flex items-center gap-1.5">
-            <span className="text-muted-foreground text-[11px]">
-              Ask Helpa to help you with this conversation
+            <span className="text-muted-foreground truncate text-[11px]">
+              {headerSubtitle}
             </span>
           </div>
         </div>
@@ -281,7 +411,7 @@ export function ReceptionistCopilotPanel({
           <div className="flex h-64 flex-col items-center justify-center gap-3 px-6 text-center">
             <Loader2 className="text-primary size-5 animate-spin" />
             <p className="text-muted-foreground text-xs">
-              Preparing patient context...
+              Preparing {terminology.person.toLowerCase()} context...
             </p>
           </div>
         ) : error && !snapshot ? (
@@ -325,11 +455,17 @@ export function ReceptionistCopilotPanel({
               </div>
             )}
 
-            <Section title="Patient Information" icon={UserRound}>
-              <InfoGrid rows={patientInfoRows} />
+            <Section
+              title={`${terminology.person} Information`}
+              icon={UserRound}
+            >
+              <InfoGrid rows={infoRows} />
             </Section>
 
-            <Section title="Patient Summary" icon={ClipboardList}>
+            <Section
+              title={`${terminology.person} Summary`}
+              icon={ClipboardList}
+            >
               <ul className="space-y-1.5">
                 {snapshot.patientSummary.map((item) => (
                   <li key={item} className="text-foreground flex gap-2 text-xs">
@@ -340,102 +476,182 @@ export function ReceptionistCopilotPanel({
               </ul>
             </Section>
 
-            <Section title="Last Visit" icon={CalendarDays}>
-              {snapshot.lastVisit.exists ? (
-                <InfoGrid
-                  rows={[
-                    field('Date', snapshot.lastVisit.date),
-                    field('Doctor', snapshot.lastVisit.doctor),
-                    field('Department', snapshot.lastVisit.department),
-                    field('Status', snapshot.lastVisit.status),
-                  ]}
-                />
-              ) : (
-                <EmptyLine>
-                  {snapshot.lastVisit.emptyMessage ||
-                    'No previous visit recorded.'}
-                </EmptyLine>
-              )}
-            </Section>
+            {/* Travel Specific Operations */}
+            {isTravel && (
+              <>
+                <Section title="Trip Proposals & Quotes" icon={Plane}>
+                  <div className="space-y-2.5">
+                    <p className="text-muted-foreground text-xs leading-relaxed">
+                      Generate and send customized day-by-day travel itineraries
+                      and pricing via WhatsApp.
+                    </p>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="w-full justify-center gap-1.5 border-emerald-500/30 text-emerald-600 hover:bg-emerald-500/10 dark:text-emerald-400"
+                      onClick={() =>
+                        router.push(`/trip-proposals?contactId=${contact.id}`)
+                      }
+                    >
+                      <Plane className="size-3.5" />
+                      <span>Create & Send Trip Proposal</span>
+                    </Button>
+                  </div>
+                </Section>
 
-            <Section title="Upcoming Appointment" icon={Clock3}>
-              {snapshot.upcomingAppointment.exists ? (
-                <InfoGrid
-                  rows={[
-                    field('Date', snapshot.upcomingAppointment.date),
-                    field('Time', snapshot.upcomingAppointment.time),
-                    field('Doctor', snapshot.upcomingAppointment.doctor),
-                    field(
-                      'Department',
-                      snapshot.upcomingAppointment.department
-                    ),
-                    field('Status', snapshot.upcomingAppointment.status),
-                    field('Token', snapshot.upcomingAppointment.tokenNumber),
-                    field('Queue', snapshot.upcomingAppointment.queuePosition),
-                  ]}
-                />
-              ) : (
-                <EmptyLine>
-                  {snapshot.upcomingAppointment.emptyMessage ||
-                    'No upcoming appointment found.'}
-                </EmptyLine>
-              )}
-            </Section>
-
-            <Section title="Latest Report Status" icon={FileText}>
-              {snapshot.reportInfo.exists ? (
-                <div className="space-y-2">
-                  <InfoGrid
-                    rows={[
-                      field('Report', snapshot.reportInfo.name),
-                      field('Status', snapshot.reportInfo.status),
-                      field('Date', snapshot.reportInfo.date),
-                    ]}
-                  />
-                  {snapshot.reportInfo.pdfUrl && (
-                    <div className="pt-1">
-                      <a
-                        href={snapshot.reportInfo.pdfUrl}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="inline-flex items-center gap-1.5 rounded border border-emerald-500/20 bg-emerald-500/10 px-2.5 py-1 text-[10px] font-semibold text-emerald-600 transition-colors hover:bg-emerald-500/20 dark:text-emerald-400"
+                <Section title="Popular Tour Packages" icon={Compass}>
+                  <div className="flex flex-wrap gap-1.5">
+                    {[
+                      'Darjeeling & Mirik',
+                      'Kashmir Paradise',
+                      'Goa Beach Holiday',
+                      'Himachal Scenic Hills',
+                    ].map((pkg) => (
+                      <button
+                        key={pkg}
+                        type="button"
+                        onClick={() => router.push('/tour-packages')}
+                        className="border-border/80 bg-background/80 hover:border-primary/50 text-foreground rounded-md border px-2 py-1 text-[11px] font-medium transition-colors"
                       >
-                        <FileDown className="h-3.5 w-3.5" /> Download Report PDF
-                      </a>
-                    </div>
-                  )}
-                </div>
-              ) : (
-                <EmptyLine>
-                  {snapshot.reportInfo.emptyMessage || 'No reports available.'}
-                </EmptyLine>
-              )}
-            </Section>
+                        {pkg}
+                      </button>
+                    ))}
+                  </div>
+                </Section>
+              </>
+            )}
 
-            <Section title="Insurance Status" icon={ShieldCheck}>
-              {snapshot.insuranceInfo.exists ? (
+            {/* Hospital Specific Operations */}
+            {isHospital && (
+              <>
+                <Section title="Last Visit" icon={CalendarDays}>
+                  {snapshot.lastVisit.exists ? (
+                    <InfoGrid
+                      rows={[
+                        field('Date', snapshot.lastVisit.date),
+                        field('Doctor', snapshot.lastVisit.doctor),
+                        field('Department', snapshot.lastVisit.department),
+                        field('Status', snapshot.lastVisit.status),
+                      ]}
+                    />
+                  ) : (
+                    <EmptyLine>
+                      {snapshot.lastVisit.emptyMessage ||
+                        'No previous visit recorded.'}
+                    </EmptyLine>
+                  )}
+                </Section>
+
+                <Section title="Upcoming Appointment" icon={Clock3}>
+                  {snapshot.upcomingAppointment.exists ? (
+                    <InfoGrid
+                      rows={[
+                        field('Date', snapshot.upcomingAppointment.date),
+                        field('Time', snapshot.upcomingAppointment.time),
+                        field('Doctor', snapshot.upcomingAppointment.doctor),
+                        field(
+                          'Department',
+                          snapshot.upcomingAppointment.department
+                        ),
+                        field('Status', snapshot.upcomingAppointment.status),
+                        field(
+                          'Token',
+                          snapshot.upcomingAppointment.tokenNumber
+                        ),
+                        field(
+                          'Queue',
+                          snapshot.upcomingAppointment.queuePosition
+                        ),
+                      ]}
+                    />
+                  ) : (
+                    <EmptyLine>
+                      {snapshot.upcomingAppointment.emptyMessage ||
+                        'No upcoming appointment found.'}
+                    </EmptyLine>
+                  )}
+                </Section>
+
+                <Section title="Latest Report Status" icon={FileText}>
+                  {snapshot.reportInfo.exists ? (
+                    <div className="space-y-2">
+                      <InfoGrid
+                        rows={[
+                          field('Report', snapshot.reportInfo.name),
+                          field('Status', snapshot.reportInfo.status),
+                          field('Date', snapshot.reportInfo.date),
+                        ]}
+                      />
+                      {snapshot.reportInfo.pdfUrl && (
+                        <div className="pt-1">
+                          <a
+                            href={snapshot.reportInfo.pdfUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="inline-flex items-center gap-1.5 rounded border border-emerald-500/20 bg-emerald-500/10 px-2.5 py-1 text-[10px] font-semibold text-emerald-600 transition-colors hover:bg-emerald-500/20 dark:text-emerald-400"
+                          >
+                            <FileDown className="h-3.5 w-3.5" /> Download Report
+                            PDF
+                          </a>
+                        </div>
+                      )}
+                    </div>
+                  ) : (
+                    <EmptyLine>
+                      {snapshot.reportInfo.emptyMessage ||
+                        'No reports available.'}
+                    </EmptyLine>
+                  )}
+                </Section>
+
+                <Section title="Insurance Status" icon={ShieldCheck}>
+                  {snapshot.insuranceInfo.exists ? (
+                    <div className="space-y-2">
+                      <InfoGrid
+                        rows={[
+                          field('Provider', snapshot.insuranceInfo.provider),
+                          field(
+                            'Cashless',
+                            snapshot.insuranceInfo.cashlessAvailable
+                          ),
+                          field('Status', snapshot.insuranceInfo.status),
+                        ]}
+                      />
+                      <p className="bg-muted/45 text-muted-foreground rounded-md px-3 py-2 text-xs leading-relaxed">
+                        {snapshot.insuranceInfo.coverageNotes}
+                      </p>
+                    </div>
+                  ) : (
+                    <EmptyLine>
+                      {snapshot.insuranceInfo.emptyMessage ||
+                        'No insurance information found.'}
+                    </EmptyLine>
+                  )}
+                </Section>
+              </>
+            )}
+
+            {/* Real Estate Operations */}
+            {isRealEstate && (
+              <Section title="Property Inquiries & Deals" icon={Building2}>
                 <div className="space-y-2">
-                  <InfoGrid
-                    rows={[
-                      field('Provider', snapshot.insuranceInfo.provider),
-                      field(
-                        'Cashless',
-                        snapshot.insuranceInfo.cashlessAvailable
-                      ),
-                      field('Status', snapshot.insuranceInfo.status),
-                    ]}
-                  />
-                  <p className="bg-muted/45 text-muted-foreground rounded-md px-3 py-2 text-xs leading-relaxed">
-                    {snapshot.insuranceInfo.coverageNotes}
+                  <p className="text-muted-foreground text-xs leading-relaxed">
+                    Track site visits, matching properties, and negotiation
+                    deals for this client.
                   </p>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="w-full justify-center gap-1.5"
+                    onClick={() =>
+                      router.push(`/pipelines?contactId=${contact.id}`)
+                    }
+                  >
+                    <span>View Pipeline Deals</span>
+                  </Button>
                 </div>
-              ) : (
-                <EmptyLine>
-                  {snapshot.insuranceInfo.emptyMessage ||
-                    'No insurance information found.'}
-                </EmptyLine>
-              )}
-            </Section>
+              </Section>
+            )}
 
             <Section title="AI Reply" icon={Sparkles}>
               <div className="space-y-2">
@@ -464,13 +680,30 @@ export function ReceptionistCopilotPanel({
                     type="button"
                     onClick={() => {
                       const lower = action.toLowerCase();
-                      if (lower.includes('appoint') || lower.includes('book')) {
+                      if (
+                        lower.includes('proposal') ||
+                        lower.includes('trip')
+                      ) {
+                        router.push(
+                          `/trip-proposals?contactId=${contact?.id || ''}`
+                        );
+                      } else if (
+                        lower.includes('package') ||
+                        lower.includes('tour')
+                      ) {
+                        router.push('/tour-packages');
+                      } else if (
+                        lower.includes('appoint') ||
+                        lower.includes('book')
+                      ) {
                         router.push(
                           `/appointments?contactId=${contact?.id || ''}`
                         );
                       } else if (
                         lower.includes('patient') ||
                         lower.includes('contact') ||
+                        lower.includes('traveler') ||
+                        lower.includes('client') ||
                         lower.includes('lead')
                       ) {
                         router.push(`/contacts?id=${contact?.id || ''}`);
@@ -480,6 +713,13 @@ export function ReceptionistCopilotPanel({
                       ) {
                         router.push(
                           `/lab-reports?contactId=${contact?.id || ''}`
+                        );
+                      } else if (
+                        lower.includes('deal') ||
+                        lower.includes('pipe')
+                      ) {
+                        router.push(
+                          `/pipelines?contactId=${contact?.id || ''}`
                         );
                       } else if (lower.includes('follow')) {
                         router.push(
@@ -549,7 +789,7 @@ export function ReceptionistCopilotPanel({
             </Section>
 
             <Section
-              title="Patient Timeline"
+              title={`${terminology.person} Timeline`}
               icon={Clock3}
               className="border-b-0"
             >
@@ -578,7 +818,9 @@ export function ReceptionistCopilotPanel({
                   ))}
                 </ol>
               ) : (
-                <EmptyLine>No patient activity timeline yet.</EmptyLine>
+                <EmptyLine>
+                  No {terminology.person.toLowerCase()} activity timeline yet.
+                </EmptyLine>
               )}
             </Section>
           </div>

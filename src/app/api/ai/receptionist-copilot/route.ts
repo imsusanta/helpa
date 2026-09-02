@@ -67,7 +67,7 @@ async function loadCopilotContext(
     await ctx.appwrite
       .from('conversations')
       .select(
-        'id, account_id, contact_id, status, last_message_text, last_message_at, ai_summary, created_at, contact:contacts(id, name, phone, email)'
+        'id, account_id, contact_id, status, last_message_text, last_message_at, ai_summary, created_at, contact:contacts(id, name, phone, email, metadata)'
       )
       .eq('id', conversationId)
       .eq('account_id', ctx.accountId)
@@ -94,7 +94,7 @@ async function loadCopilotContext(
   if (!contact) {
     const { data: contactData, error: contactError } = await ctx.appwrite
       .from('contacts')
-      .select('id, name, phone, email')
+      .select('id, name, phone, email, metadata')
       .eq('id', conversation.contact_id)
       .eq('account_id', ctx.accountId)
       .maybeSingle();
@@ -232,6 +232,10 @@ export async function POST(request: Request) {
       .eq('id', ctx.accountId)
       .maybeSingle();
     const accountData = (account.data ?? {}) as AccountAiRow;
+    context.industry =
+      (accountData.industry as string) ||
+      (ctx.account.industry as string) ||
+      null;
 
     let fallback = buildFallbackCopilotSnapshot(context);
 
