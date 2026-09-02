@@ -82,8 +82,8 @@ export class OpenRouterProvider implements AiProvider {
 
     const model = options?.model || 'google/gemini-2.5-flash';
     const temperature = options?.temperature ?? 0.3;
-    const maxTokens = options?.maxTokens ?? 1000;
-    const timeoutMs = options?.timeoutMs ?? 15000;
+    const maxTokens = options?.maxTokens ?? 800;
+    const timeoutMs = options?.timeoutMs ?? 25000;
 
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
@@ -223,8 +223,8 @@ export class OrcaRouterProvider implements AiProvider {
     // Support orcarouter/auto as valid OrcaRouter model choice
     const model = options?.model || 'orcarouter/auto';
     const temperature = options?.temperature ?? 0.3;
-    const maxTokens = options?.maxTokens ?? 1000;
-    const timeoutMs = options?.timeoutMs ?? 15000;
+    const maxTokens = options?.maxTokens ?? 800;
+    const timeoutMs = options?.timeoutMs ?? 25000;
 
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), timeoutMs);

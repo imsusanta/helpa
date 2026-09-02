@@ -562,8 +562,8 @@ export async function triggerAiResponse(
       messages: apiMessages,
       options: {
         temperature: 0.2,
-        maxTokens: 400,
-        timeoutMs: 8000,
+        maxTokens: 600,
+        timeoutMs: 20000,
         responseFormat: { type: 'json_object' },
       },
       resolutionParams: {
@@ -582,8 +582,8 @@ export async function triggerAiResponse(
         messages: apiMessages,
         options: {
           temperature: 0.2,
-          maxTokens: 400,
-          timeoutMs: 8000,
+          maxTokens: 600,
+          timeoutMs: 20000,
         },
         resolutionParams: {
           accountId,
