@@ -113,8 +113,7 @@ export function ConversationList({
           a[i].assigned_agent_id !== b[i].assigned_agent_id ||
           a[i].ai_chat_enabled !== b[i].ai_chat_enabled ||
           (a[i].ai_handoff_required ?? false) !==
-            (b[i].ai_handoff_required ?? false) ||
-          a[i].ai_lead_score !== b[i].ai_lead_score
+            (b[i].ai_handoff_required ?? false)
         ) {
           return false;
         }
@@ -706,25 +705,6 @@ function ConversationItem({
 
         {/* Status / Assignment metadata footer */}
         <div className="mt-1 flex flex-wrap items-center gap-1.5">
-          {conversation.ai_lead_score && (
-            <span
-              className={cn(
-                'inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-[9px] font-bold shadow-2xs',
-                String(conversation.ai_lead_score).toLowerCase() === 'hot'
-                  ? 'border border-rose-500/30 bg-rose-500/15 text-rose-600 dark:text-rose-400'
-                  : String(conversation.ai_lead_score).toLowerCase() === 'warm'
-                    ? 'border border-amber-500/30 bg-amber-500/15 text-amber-600 dark:text-amber-400'
-                    : 'bg-blue-500/10 text-blue-600 dark:text-blue-400'
-              )}
-            >
-              {String(conversation.ai_lead_score).toLowerCase() === 'hot'
-                ? '🔥 Hot Lead'
-                : String(conversation.ai_lead_score).toLowerCase() === 'warm'
-                  ? '⚡ Warm Lead'
-                  : '🎯 Lead'}
-            </span>
-          )}
-
           {conversation.ai_handoff_required ? (
             <span className="inline-flex animate-pulse items-center gap-1 rounded border border-red-500/30 bg-red-500/15 px-1.5 py-0.5 text-[9px] font-bold text-red-600 dark:text-red-400">
               <span className="h-1.5 w-1.5 rounded-full bg-red-500" />

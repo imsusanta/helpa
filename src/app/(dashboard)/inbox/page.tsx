@@ -19,6 +19,7 @@ import {
   mergeConversationEvent,
   mergeMessages,
 } from '@/lib/inbox/merge';
+import { conversationMessagesCache } from '@/lib/inbox/client-cache';
 import { isHiddenWhatsAppInboxChat } from '@/core/whatsapp/group-identity';
 
 // Remembers the agent's show/hide choice for the desktop contact panel
@@ -245,6 +246,17 @@ export default function InboxPage() {
         );
         seenRealtimeMessageIdsRef.current.add(newMsg.id);
 
+        // Update shared message cache
+        const existingForConv = conversationMessagesCache.get(
+          newMsg.conversation_id
+        );
+        if (existingForConv) {
+          conversationMessagesCache.set(
+            newMsg.conversation_id,
+            mergeMessages(existingForConv, [newMsg])
+          );
+        }
+
         // Add to messages if it belongs to active conversation
         if (
           activeConversation &&
@@ -429,7 +441,8 @@ export default function InboxPage() {
 
   const handleSelectConversation = useCallback((conversation: Conversation) => {
     setActiveConversation(conversation);
-    setMessages([]);
+    const cached = conversationMessagesCache.get(conversation.id);
+    setMessages(cached || []);
   }, []);
 
   const handleSelectById = useCallback(
@@ -625,40 +638,37 @@ export default function InboxPage() {
 
         {contactPanelOpen && (
           <aside className="border-border bg-card hidden h-full min-h-0 w-80 shrink-0 flex-col border-l lg:flex">
-            {currentIndustry === 'hospital_clinic' && (
-              <div className="bg-muted border-border m-3 mb-0 flex rounded-lg border p-0.5">
-                <button
-                  type="button"
-                  onClick={() => setRightTab('crm')}
-                  aria-pressed={rightTab === 'crm'}
-                  className={cn(
-                    'flex-1 cursor-pointer rounded-md py-1.5 text-center text-xs font-bold transition-all',
-                    rightTab === 'crm'
-                      ? 'bg-background text-foreground border-border/50 border shadow-sm'
-                      : 'text-muted-foreground hover:text-foreground'
-                  )}
-                >
-                  👤 {contactLabelSingular} Details
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setRightTab('copilot')}
-                  aria-pressed={rightTab === 'copilot'}
-                  className={cn(
-                    'flex-1 cursor-pointer rounded-md py-1.5 text-center text-xs font-bold transition-all',
-                    rightTab === 'copilot'
-                      ? 'bg-background text-foreground border-border/50 border shadow-sm'
-                      : 'text-muted-foreground hover:text-foreground'
-                  )}
-                >
-                  🤖 AI Copilot
-                </button>
-              </div>
-            )}
+            <div className="bg-muted border-border m-3 mb-0 flex rounded-lg border p-0.5">
+              <button
+                type="button"
+                onClick={() => setRightTab('crm')}
+                aria-pressed={rightTab === 'crm'}
+                className={cn(
+                  'flex-1 cursor-pointer rounded-md py-1.5 text-center text-xs font-bold transition-all',
+                  rightTab === 'crm'
+                    ? 'bg-background text-foreground border-border/50 border shadow-sm'
+                    : 'text-muted-foreground hover:text-foreground'
+                )}
+              >
+                👤 {contactLabelSingular} Details
+              </button>
+              <button
+                type="button"
+                onClick={() => setRightTab('copilot')}
+                aria-pressed={rightTab === 'copilot'}
+                className={cn(
+                  'flex-1 cursor-pointer rounded-md py-1.5 text-center text-xs font-bold transition-all',
+                  rightTab === 'copilot'
+                    ? 'bg-background text-foreground border-border/50 border shadow-sm'
+                    : 'text-muted-foreground hover:text-foreground'
+                )}
+              >
+                🤖 AI Copilot
+              </button>
+            </div>
 
             <div className="flex min-h-0 flex-1 flex-col">
-              {rightTab === 'copilot' &&
-              currentIndustry === 'hospital_clinic' ? (
+              {rightTab === 'copilot' ? (
                 <ReceptionistCopilotPanel
                   conversation={activeConversation}
                   contact={activeContact}

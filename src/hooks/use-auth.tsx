@@ -114,6 +114,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (!response.ok || !payload?.success || !payload?.profile) {
         throw new Error(payload?.error || 'Failed to load profile');
       }
+      if (Array.isArray(payload.enabled_modules)) {
+        setEnabledModuleKeys(payload.enabled_modules);
+      }
       setProfile(payload.profile);
       setAccount(
         payload.account || {
@@ -138,9 +141,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const init = async () => {
       try {
         // The profile endpoint already verifies the Supabase session and returns
-        // the user, profile, and account in one response. Avoiding a separate
-        // /api/auth/me request removes one full network round trip from every
-        // cold dashboard load.
+        // the user, profile, account, and enabled modules in one single response.
+        // Avoiding separate /api/auth/me and /api/account/modules requests removes
+        // two full network round trips from every cold dashboard load.
         const response = await fetch('/api/account/profile', {
           cache: 'no-store',
         });
@@ -165,6 +168,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
               industry: 'hospital_clinic',
             }
           );
+          if (Array.isArray(payload.enabled_modules)) {
+            setEnabledModuleKeys(payload.enabled_modules);
+          } else if (payload.profile?.account_id) {
+            void fetchModules(payload.profile.account_id);
+          }
         }
       } catch {
         if (mounted) {
@@ -185,15 +193,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return () => {
       mounted = false;
     };
-  }, []);
-
-  useEffect(() => {
-    if (profile?.account_id) {
-      void fetchModules(profile.account_id);
-    } else {
-      setEnabledModuleKeys([]);
-    }
-  }, [profile?.account_id, fetchModules]);
+  }, [fetchModules]);
 
   const signOut = useCallback(async () => {
     const response = await fetch('/api/auth/logout', { method: 'POST' });

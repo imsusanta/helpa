@@ -138,6 +138,8 @@ export default function RootLayout({
       suppressHydrationWarning
     >
       <head>
+        <link rel="dns-prefetch" href="https://graph.facebook.com" />
+        <link rel="dns-prefetch" href="https://connect.facebook.net" />
         <OrganizationJsonLd />
         <SoftwareApplicationJsonLd />
         <Script id="theme-boot" strategy="beforeInteractive">

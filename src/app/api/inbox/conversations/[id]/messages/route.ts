@@ -100,7 +100,9 @@ export async function GET(request: NextRequest, { params }: Params) {
     // newest context.
     const { data: msgs, error: mErr } = await supabase
       .from('messages')
-      .select('*')
+      .select(
+        'id, conversation_id, direction, sender_type, content_type, content_text, media_url, template_name, provider_message_id, status, created_at, reply_to_message_id, interactive_reply_id'
+      )
       .eq('conversation_id', conversationId)
       .order('created_at', { ascending: false })
       .limit(limit);

@@ -1,7 +1,5 @@
 import { NextResponse } from 'next/server';
-
-import { toErrorResponse } from '@/lib/auth/account';
-import { requireHealthWorkplace } from '@/lib/auth/industry';
+import { requireRole, toErrorResponse } from '@/lib/auth/account';
 import {
   RATE_LIMITS,
   checkRateLimit,
@@ -65,7 +63,7 @@ function isConversationRow(value: unknown): value is ConversationRow {
 }
 
 async function loadCopilotContext(
-  ctx: Awaited<ReturnType<typeof requireHealthWorkplace>>,
+  ctx: Awaited<ReturnType<typeof requireRole>>,
   conversationId: string
 ): Promise<CopilotSourceContext | NextResponse> {
   const { data: conversationData, error: conversationError } =
@@ -243,7 +241,7 @@ async function loadCopilotContext(
 
 export async function POST(request: Request) {
   try {
-    const ctx = await requireHealthWorkplace('viewer');
+    const ctx = await requireRole('viewer');
 
     const limit = await checkRateLimit(
       `ai-copilot:${ctx.userId}`,

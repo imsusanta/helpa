@@ -171,22 +171,50 @@ interface UpcomingFollowup {
   patient?: { name?: string | null } | null;
 }
 
+interface CachedMetricsData {
+  metrics: Record<string, number>;
+  leadSources: LeadSourceSlice[];
+  timestamp: number;
+}
+const metricsCache = new Map<string, CachedMetricsData>();
+const METRICS_CACHE_TTL_MS = 60_000; // 1 minute
+
 export function GenericDashboardClient() {
   const { terminology, isRouteAllowed } = useWorkspace();
   const { account, accountId, profile } = useAuth();
-  const [loading, setLoading] = useState(true);
-  const [metrics, setMetrics] = useState<Record<string, number>>({});
+  const [range, setRange] = useState('30d');
+
+  const cacheKey = `${accountId || ''}:${account?.industry || ''}:${range}`;
+  const initialCache = metricsCache.get(cacheKey);
+
+  const [loading, setLoading] = useState(!initialCache);
+  const [metrics, setMetrics] = useState<Record<string, number>>(
+    initialCache?.metrics || {}
+  );
   const [upcomingFollowups, setUpcomingFollowups] = useState<
     UpcomingFollowup[]
   >([]);
-  const [leadSources, setLeadSources] = useState<LeadSourceSlice[]>([]);
-  const [range, setRange] = useState('30d');
+  const [leadSources, setLeadSources] = useState<LeadSourceSlice[]>(
+    initialCache?.leadSources || []
+  );
   const userName =
     profile?.full_name?.split(' ')[0] || account?.name || 'susanta';
 
   useEffect(() => {
     if (!accountId) return;
     let cancelled = false;
+
+    const currentCached = metricsCache.get(cacheKey);
+    if (currentCached) {
+      setMetrics(currentCached.metrics);
+      setLeadSources(currentCached.leadSources);
+      if (Date.now() - currentCached.timestamp < METRICS_CACHE_TTL_MS) {
+        setLoading(false);
+      }
+    } else {
+      setLoading(true);
+    }
+
     fetch('/api/dashboard/metrics', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -195,10 +223,17 @@ export function GenericDashboardClient() {
       .then(async (res) => {
         const data = await res.json();
         if (!cancelled && res.ok && data.success) {
-          setMetrics(data.metrics || {});
-          setLeadSources(
-            Array.isArray(data.lead_sources) ? data.lead_sources : []
-          );
+          const freshMetrics = data.metrics || {};
+          const freshSources = Array.isArray(data.lead_sources)
+            ? data.lead_sources
+            : [];
+          setMetrics(freshMetrics);
+          setLeadSources(freshSources);
+          metricsCache.set(cacheKey, {
+            metrics: freshMetrics,
+            leadSources: freshSources,
+            timestamp: Date.now(),
+          });
         }
       })
       .catch((error) => console.error('Metrics fetch error:', error))
@@ -217,7 +252,7 @@ export function GenericDashboardClient() {
     return () => {
       cancelled = true;
     };
-  }, [accountId, account?.industry, range]);
+  }, [accountId, account?.industry, range, cacheKey]);
 
   const totalPipeline = useMemo(
     () =>
