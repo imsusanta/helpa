@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { requireRole, toErrorResponse } from '@/lib/auth/account';
+import { toErrorResponse } from '@/lib/auth/account';
+import { requireHealthWorkplace } from '@/lib/auth/industry';
 import { getAdminClient as getSupabaseAdminClient } from '@/lib/supabase/server';
 
 const PRIVATE_HEADERS = {
@@ -8,7 +9,7 @@ const PRIVATE_HEADERS = {
 
 export async function GET(request: NextRequest): Promise<NextResponse> {
   try {
-    const context = await requireRole('viewer');
+    const context = await requireHealthWorkplace('viewer');
     const supabase = getSupabaseAdminClient();
 
     const status = request.nextUrl.searchParams.get('status');
@@ -61,7 +62,7 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
 
 export async function POST(request: NextRequest): Promise<NextResponse> {
   try {
-    const context = await requireRole('agent');
+    const context = await requireHealthWorkplace('agent');
     const supabase = getSupabaseAdminClient();
     const body = await request.json();
 

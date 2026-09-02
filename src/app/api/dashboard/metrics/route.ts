@@ -13,11 +13,10 @@ export async function POST(request: Request) {
     const ctx = await requireRole('viewer');
     const supabase = getSupabaseAdminClient();
     const body = await request.json().catch(() => ({}));
-    const { industry, range = '30d' } = body || {};
+    const { range = '30d' } = body || {};
 
-    const activeModule = getIndustryModule(
-      industry || (ctx.account as { industry?: string })?.industry
-    );
+    const accountIndustry = (ctx.account as { industry?: string })?.industry;
+    const activeModule = getIndustryModule(accountIndustry);
     const metricsResult: Record<string, number> = {};
 
     const now = new Date();

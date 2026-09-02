@@ -43,6 +43,8 @@ export interface IndustryModulePort {
   augmentSystemPrompt?(
     params: SystemPromptAugmentationParams
   ): Promise<string>;
+  /** Retrieve all seeded knowledge base titles registered across industries. */
+  getSeededKnowledgeTitles?(): Set<string> | string[];
 }
 
 const DEFAULT_GENERAL_MANIFEST: CoreIndustryManifest = {

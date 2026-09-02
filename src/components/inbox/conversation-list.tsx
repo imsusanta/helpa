@@ -111,7 +111,9 @@ export function ConversationList({
           a[i].last_message_at !== b[i].last_message_at ||
           a[i].status !== b[i].status ||
           a[i].assigned_agent_id !== b[i].assigned_agent_id ||
-          a[i].ai_chat_enabled !== b[i].ai_chat_enabled
+          a[i].ai_chat_enabled !== b[i].ai_chat_enabled ||
+          (a[i].ai_handoff_required ?? false) !==
+            (b[i].ai_handoff_required ?? false)
         ) {
           return false;
         }
@@ -192,7 +194,13 @@ export function ConversationList({
       if ((c.unread_count ?? 0) > 0) unread++;
       if (user?.id && c.assigned_agent_id === user.id) mine++;
       if (c.status === 'open' && !c.assigned_agent_id) ai++;
-      if (c.status === 'pending' || (c.unread_count ?? 0) > 0) attention++;
+      if (
+        c.status === 'pending' ||
+        (c.unread_count ?? 0) > 0 ||
+        c.ai_handoff_required
+      ) {
+        attention++;
+      }
     }
 
     return { unread, mine, ai, attention, total: conversations.length };
@@ -215,7 +223,10 @@ export function ConversationList({
       );
     } else if (filter === 'attention') {
       result = result.filter(
-        (c) => c.status === 'pending' || (c.unread_count ?? 0) > 0
+        (c) =>
+          c.status === 'pending' ||
+          (c.unread_count ?? 0) > 0 ||
+          c.ai_handoff_required === true
       );
     } else if (filter !== 'all') {
       result = result.filter((c) => c.status === filter);
@@ -693,8 +704,13 @@ function ConversationItem({
         </div>
 
         {/* Status / Assignment metadata footer */}
-        <div className="mt-1 flex items-center gap-1.5">
-          {conversation.assigned_agent_id ? (
+        <div className="mt-1 flex flex-wrap items-center gap-1.5">
+          {conversation.ai_handoff_required ? (
+            <span className="inline-flex animate-pulse items-center gap-1 rounded border border-red-500/30 bg-red-500/15 px-1.5 py-0.5 text-[9px] font-bold text-red-600 dark:text-red-400">
+              <span className="h-1.5 w-1.5 rounded-full bg-red-500" />
+              ⚠️ Human Handoff
+            </span>
+          ) : conversation.assigned_agent_id ? (
             <span className="bg-muted text-muted-foreground inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-[9px] font-medium">
               <span className="h-1.5 w-1.5 rounded-full bg-blue-500" />
               Assigned
@@ -706,7 +722,7 @@ function ConversationItem({
             </span>
           ) : null}
 
-          {conversation.status === 'pending' && (
+          {conversation.status === 'pending' && !conversation.ai_handoff_required && (
             <span className="inline-flex items-center gap-1 rounded bg-amber-500/10 px-1.5 py-0.5 text-[9px] font-medium text-amber-600 dark:text-amber-400">
               Needs Attention
             </span>

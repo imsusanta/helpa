@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { getAdminClient } from '@/lib/db/server';
-import { requireRole, toErrorResponse } from '@/lib/auth/account';
+import { toErrorResponse } from '@/lib/auth/account';
+import { requireHealthWorkplace } from '@/lib/auth/industry';
 import { logger } from '@/lib/observability/logger';
 import { scrubSensitiveFields } from '@/lib/privacy/consent-service';
 import {
@@ -41,8 +42,8 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    // 1. Authenticate and authorize — derive identity from server session
-    const ctx = await requireRole('admin');
+    // 1. Authenticate and authorize — derive identity from server session in Health workplace
+    const ctx = await requireHealthWorkplace('admin');
     const accountId = ctx.accountId;
     const actorId = ctx.userId;
 

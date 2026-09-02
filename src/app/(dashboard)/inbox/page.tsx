@@ -625,34 +625,36 @@ export default function InboxPage() {
 
         {contactPanelOpen && (
           <aside className="border-border bg-card hidden h-full min-h-0 w-80 shrink-0 flex-col border-l lg:flex">
-            <div className="border-border bg-muted/20 flex shrink-0 border-b p-1">
-              <button
-                type="button"
-                onClick={() => setRightTab('crm')}
-                aria-pressed={rightTab === 'crm'}
-                className={cn(
-                  'flex-1 cursor-pointer rounded-md py-1.5 text-center text-xs font-bold transition-all',
-                  rightTab === 'crm'
-                    ? 'bg-background border-border/50 border text-emerald-700 shadow-sm dark:text-emerald-400'
-                    : 'text-muted-foreground hover:text-foreground'
-                )}
-              >
-                👤 {contactLabelSingular} Details
-              </button>
-              <button
-                type="button"
-                onClick={() => setRightTab('copilot')}
-                aria-pressed={rightTab === 'copilot'}
-                className={cn(
-                  'flex-1 cursor-pointer rounded-md py-1.5 text-center text-xs font-bold transition-all',
-                  rightTab === 'copilot'
-                    ? 'bg-background text-foreground border-border/50 border shadow-sm'
-                    : 'text-muted-foreground hover:text-foreground'
-                )}
-              >
-                🤖 AI Copilot
-              </button>
-            </div>
+            {currentIndustry === 'hospital_clinic' && (
+              <div className="bg-muted border-border m-3 mb-0 flex rounded-lg border p-0.5">
+                <button
+                  type="button"
+                  onClick={() => setRightTab('crm')}
+                  aria-pressed={rightTab === 'crm'}
+                  className={cn(
+                    'flex-1 cursor-pointer rounded-md py-1.5 text-center text-xs font-bold transition-all',
+                    rightTab === 'crm'
+                      ? 'bg-background text-foreground border-border/50 border shadow-sm'
+                      : 'text-muted-foreground hover:text-foreground'
+                  )}
+                >
+                  👤 {contactLabelSingular} Details
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setRightTab('copilot')}
+                  aria-pressed={rightTab === 'copilot'}
+                  className={cn(
+                    'flex-1 cursor-pointer rounded-md py-1.5 text-center text-xs font-bold transition-all',
+                    rightTab === 'copilot'
+                      ? 'bg-background text-foreground border-border/50 border shadow-sm'
+                      : 'text-muted-foreground hover:text-foreground'
+                  )}
+                >
+                  🤖 AI Copilot
+                </button>
+              </div>
+            )}
 
             <div className="flex min-h-0 flex-1 flex-col">
               {rightTab === 'copilot' &&

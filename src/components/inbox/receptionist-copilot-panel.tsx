@@ -160,11 +160,15 @@ export function ReceptionistCopilotPanel({
     ].join(':');
   }, [conversation?.id, messages, refreshNonce]);
 
+  const cacheKey = conversation
+    ? `${conversation.account_id || 'default'}:${conversation.id}`
+    : '';
+
   const snapshot =
     conversation && snapshotState?.conversationId === conversation.id
       ? snapshotState.snapshot
-      : conversation
-        ? copilotCache[conversation.id] || null
+      : cacheKey
+        ? copilotCache[cacheKey] || null
         : null;
 
   const error =
@@ -174,6 +178,7 @@ export function ReceptionistCopilotPanel({
 
   useEffect(() => {
     if (!conversation) return;
+    const currentKey = `${conversation.account_id || 'default'}:${conversation.id}`;
     const controller = new AbortController();
     const timer = setTimeout(() => {
       setLoading(true);
@@ -200,7 +205,7 @@ export function ReceptionistCopilotPanel({
             snapshot: payload.snapshot,
           });
           // Save to cache for instant load on next selection
-          copilotCache[conversation.id] = payload.snapshot;
+          copilotCache[currentKey] = payload.snapshot;
         })
         .catch((err) => {
           if (controller.signal.aborted) return;

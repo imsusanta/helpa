@@ -4,7 +4,15 @@ import {
   insertSteps,
   type BuilderStepInput,
 } from '@/lib/automations/steps-tree';
-import { workflowsConfig } from '@/modules/travel/workflows';
+import { AUTOMATION_TEMPLATES, type TemplateSlug } from './templates';
+
+const TRAVEL_SEED_SLUGS: TemplateSlug[] = [
+  'traveler_intake_greeting',
+  'travel_package_enquiry',
+  'travel_booking_confirm',
+  'travel_payment_followup',
+  'travel_documents_reminder',
+];
 
 export async function ensureTravelWorkflowsSeeded(opts: {
   accountId: string;
@@ -29,9 +37,11 @@ export async function ensureTravelWorkflowsSeeded(opts: {
   }
 
   let created = 0;
-  for (const workflow of workflowsConfig) {
+  for (const slug of TRAVEL_SEED_SLUGS) {
+    const workflow = AUTOMATION_TEMPLATES[slug];
+    if (!workflow) continue;
     if (
-      existingKeys.has(workflow.seedKey) ||
+      existingKeys.has(slug) ||
       existingNames.has(workflow.name.trim().toLowerCase())
     ) {
       continue;
@@ -43,21 +53,18 @@ export async function ensureTravelWorkflowsSeeded(opts: {
       name: workflow.name,
       description: workflow.description,
       triggerType: workflow.trigger_type,
-      triggerConfig: workflow.trigger_config || {},
-      isActive: workflow.is_active,
+      triggerConfig:
+        (workflow.trigger_config as Record<string, unknown>) || {},
+      isActive: true,
       metadata: {
         helpa_seeded_workflow: true,
-        workflow_seed_key: workflow.seedKey,
+        workflow_seed_key: slug,
         workflow_industry: 'travel',
       },
     });
 
     if (error || !autoRecord) {
-      console.warn(
-        '[travel-seeds] failed to insert',
-        workflow.seedKey,
-        error?.message
-      );
+      console.warn('[travel-seeds] failed to insert', slug, error?.message);
       continue;
     }
     if (workflow.steps?.length) {

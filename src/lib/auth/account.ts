@@ -6,6 +6,10 @@ import {
   getAdminClient as getSupabaseAdminClient,
 } from '@/lib/supabase/server';
 import { getRuntimeConfig } from '@/lib/runtime-config';
+import {
+  resolveIndustryAlias,
+  type CanonicalIndustry,
+} from '@/core/modules/terminology';
 
 export class UnauthorizedError extends Error {
   readonly status = 401 as const;
@@ -46,7 +50,13 @@ export interface AccountContext {
   accountId: string;
   role: AccountRole;
   email?: string;
-  account: { id: string; name: string };
+  /**
+   * Canonical, server-resolved workspace industry. Always derived from the
+   * authenticated account row — never from a client-supplied value. Use this
+   * for any industry-scoped decision instead of trusting request input.
+   */
+  industry: CanonicalIndustry;
+  account: { id: string; name: string; industry: string };
   /** Service-role database client for this request. Always set. */
   admin: AdminClient;
   /** @deprecated Use `admin`. Alias kept for remaining ctx.appwrite call sites. */
@@ -191,17 +201,25 @@ export async function getCurrentAccount(): Promise<ResolvedAccountContext> {
 
     const { data: accountDoc } = await admin
       .from('accounts')
-      .select('id, name')
+      .select('id, name, industry')
       .eq('id', accountId)
       .maybeSingle();
     if (!accountDoc) throw new ForbiddenError('Account not found');
+
+    const rawIndustry = (accountDoc as { industry?: string | null }).industry;
+    const industry = resolveIndustryAlias(rawIndustry);
 
     return {
       userId,
       accountId,
       role,
       email: user.email || undefined,
-      account: { id: accountId, name: accountDoc.name || 'Clinic Account' },
+      industry,
+      account: {
+        id: accountId,
+        name: accountDoc.name || 'Clinic Account',
+        industry: rawIndustry || 'general',
+      },
       admin: getAdminClient(),
       appwrite: getAdminClient(),
     };

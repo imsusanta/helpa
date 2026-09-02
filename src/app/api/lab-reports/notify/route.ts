@@ -1,11 +1,11 @@
 import { NextResponse } from 'next/server';
 import { getAdminClient } from '@/lib/db/server';
 import {
-  requireRole,
   toErrorResponse,
   UnauthorizedError,
   ForbiddenError,
 } from '@/lib/auth/account';
+import { requireHealthWorkplace } from '@/lib/auth/industry';
 import {
   engineSendText,
   engineSendDocument,
@@ -20,7 +20,7 @@ export async function POST(request: Request) {
     // client-supplied accountId must never be trusted here — it would
     // let any authenticated user read another tenant's report and send
     // WhatsApp messages on that tenant's behalf.
-    const authContext = await requireRole('agent');
+    const authContext = await requireHealthWorkplace('agent');
     const accountId = authContext.accountId;
 
     if (!reportId) {

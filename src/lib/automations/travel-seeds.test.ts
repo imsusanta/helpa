@@ -56,29 +56,6 @@ vi.mock('@/lib/automations/steps-tree', () => ({
   insertSteps: vi.fn(async () => null),
 }));
 
-vi.mock('@/modules/travel/workflows', () => ({
-  workflowsConfig: [
-    {
-      seedKey: 'travel_booking_confirm',
-      name: 'Booking Confirm',
-      description: 'Send confirm template',
-      trigger_type: 'keyword_match',
-      trigger_config: { keywords: ['booking confirm'] },
-      is_active: true,
-      steps: [{ step_type: 'send_message', step_config: { text: 'Confirm' } }],
-    },
-    {
-      seedKey: 'traveler_intake_greeting',
-      name: 'Traveler Intake Greeting',
-      description: 'Welcome',
-      trigger_type: 'first_inbound_message',
-      trigger_config: {},
-      is_active: true,
-      steps: [{ step_type: 'send_message', step_config: { text: 'Hi' } }],
-    },
-  ],
-}));
-
 import { ensureTravelWorkflowsSeeded } from './travel-seeds';
 
 describe('ensureTravelWorkflowsSeeded', () => {
@@ -91,8 +68,8 @@ describe('ensureTravelWorkflowsSeeded', () => {
       accountId: 'acct-travel',
       userId: 'user-1',
     });
-    expect(created).toBe(2);
-    expect(h.automations).toHaveLength(2);
+    expect(created).toBe(5);
+    expect(h.automations).toHaveLength(5);
     expect(h.automations.every((row) => row.account_id === 'acct-travel')).toBe(
       true
     );
@@ -100,10 +77,6 @@ describe('ensureTravelWorkflowsSeeded', () => {
       true
     );
     expect(h.automations.some((row) => 'user_id' in row)).toBe(false);
-    expect(h.automations.map((row) => row.name)).toEqual([
-      'Booking Confirm',
-      'Traveler Intake Greeting',
-    ]);
   });
 
   it('skips seeds that already exist by key or name', async () => {
@@ -119,8 +92,7 @@ describe('ensureTravelWorkflowsSeeded', () => {
       accountId: 'acct-travel',
       userId: 'user-1',
     });
-    expect(created).toBe(1);
-    expect(h.automations).toHaveLength(2);
-    expect(h.automations[1].name).toBe('Traveler Intake Greeting');
+    expect(created).toBe(4);
+    expect(h.automations).toHaveLength(5);
   });
 });

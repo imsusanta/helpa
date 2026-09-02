@@ -3,10 +3,12 @@ import type { IndustryModule } from './types';
 const SHARED_WORKSPACE_ROUTES = [
   '/dashboard',
   '/inbox',
-  '/follow-ups',
+  '/contacts',
   '/leads',
   '/customers',
+  '/deals',
   '/pipelines',
+  '/follow-ups',
   '/settings',
   '/broadcasts',
   '/campaign-reports',
@@ -19,6 +21,8 @@ const SHARED_WORKSPACE_ROUTES = [
   '/invoices',
   '/automations',
   '/integrations',
+  '/help',
+  '/analytics',
 ] as const;
 
 /**
@@ -31,11 +35,48 @@ export const INDUSTRY_ROUTE_OWNERS = [
     route: '/appointments',
     industries: ['hospital_clinic', 'salon', 'travel'],
   },
+  {
+    route: '/patients',
+    industries: ['hospital_clinic'],
+  },
+  {
+    route: '/doctors',
+    industries: ['hospital_clinic'],
+  },
+  {
+    route: '/departments',
+    industries: ['hospital_clinic'],
+  },
+  {
+    route: '/lab-reports',
+    industries: ['hospital_clinic'],
+  },
+  {
+    route: '/website',
+    industries: ['hospital_clinic'],
+  },
   { route: '/booking-trip', industries: ['travel'] },
+  { route: '/bookings', industries: ['travel'] },
   { route: '/trip-proposals', industries: ['travel'] },
   { route: '/packages', industries: ['travel'] },
   { route: '/tour-packages', industries: ['travel'] },
   { route: '/quotations', industries: ['travel'] },
+  { route: '/admissions', industries: ['coaching'] },
+  { route: '/courses', industries: ['coaching', 'solo_teacher'] },
+  { route: '/classes', industries: ['coaching', 'solo_teacher'] },
+  { route: '/students', industries: ['coaching', 'solo_teacher'] },
+  { route: '/teachers', industries: ['coaching', 'solo_teacher'] },
+  { route: '/members', industries: ['gym'] },
+  { route: '/memberships', industries: ['gym'] },
+  { route: '/trainers', industries: ['gym'] },
+  { route: '/orders', industries: ['restaurant'] },
+  { route: '/reservations', industries: ['restaurant'] },
+  { route: '/tables', industries: ['restaurant'] },
+  { route: '/properties', industries: ['real_estate'] },
+  { route: '/agents', industries: ['real_estate'] },
+  { route: '/site-visits', industries: ['real_estate'] },
+  { route: '/services', industries: ['salon'] },
+  { route: '/staff', industries: ['salon'] },
 ] as const;
 
 function pathMatchesRoute(pathname: string, route: string) {
@@ -59,11 +100,11 @@ export function isIndustryRouteAllowed(
     return true;
   }
 
-  if (!manifest.allowedRoutes || manifest.allowedRoutes.length === 0) {
-    return true;
+  if (manifest.allowedRoutes && manifest.allowedRoutes.length > 0) {
+    return manifest.allowedRoutes.some((route) =>
+      pathMatchesRoute(pathname, route)
+    );
   }
 
-  return manifest.allowedRoutes.some((route) =>
-    pathMatchesRoute(pathname, route)
-  );
+  return false;
 }

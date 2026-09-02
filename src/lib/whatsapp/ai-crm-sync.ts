@@ -26,17 +26,23 @@ export async function updateConversationInsights(
   args: Pick<CrmSyncArgs, 'conversationId' | 'insights'>
 ): Promise<void> {
   const { insights } = args;
+  const updatePayload: Record<string, unknown> = {
+    ai_intent: insights.intent,
+    ai_lead_score: insights.leadScore,
+    ai_sentiment: insights.sentiment,
+    ai_summary: insights.summary,
+    ai_handoff_required: insights.handoffRequired,
+    ai_resolved: insights.resolved,
+    ai_faq_category: insights.faqCategory,
+  };
+
+  if (insights.handoffRequired) {
+    updatePayload.ai_chat_enabled = false;
+  }
+
   const { error } = await db
     .from('conversations')
-    .update({
-      ai_intent: insights.intent,
-      ai_lead_score: insights.leadScore,
-      ai_sentiment: insights.sentiment,
-      ai_summary: insights.summary,
-      ai_handoff_required: insights.handoffRequired,
-      ai_resolved: insights.resolved,
-      ai_faq_category: insights.faqCategory,
-    })
+    .update(updatePayload)
     .eq('id', args.conversationId);
 
   if (error) {

@@ -9,6 +9,7 @@
 import { getAdminClient } from '@/lib/db/server';
 import type { AiToolDefinition, AiExecutionContext } from './types';
 import { registerTourPackageTools } from './tour-package-tools';
+import { resolveIndustryAlias } from '@/core/modules/terminology';
 
 class AiToolRegistry {
   private tools: Map<string, AiToolDefinition> = new Map();
@@ -28,11 +29,14 @@ class AiToolRegistry {
   public getToolsForIndustry(industry?: string): AiToolDefinition[] {
     const all = this.getAll();
     if (!industry) return all;
+    const canonicalTarget = resolveIndustryAlias(industry);
     return all.filter(
       (t) =>
         !t.allowedIndustries ||
         t.allowedIndustries.length === 0 ||
-        t.allowedIndustries.includes(industry)
+        t.allowedIndustries.some(
+          (ind) => resolveIndustryAlias(ind) === canonicalTarget
+        )
     );
   }
 }

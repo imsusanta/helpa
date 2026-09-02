@@ -12,7 +12,12 @@ interface ServerClientOptions {
 }
 
 export async function createClient(options: ServerClientOptions = {}) {
-  const cookieStore = await cookies();
+  let cookieStore: Awaited<ReturnType<typeof cookies>> | null = null;
+  try {
+    cookieStore = await cookies();
+  } catch {
+    cookieStore = null;
+  }
   const { url: supabaseUrl, publishableKey: supabaseAnonKey } =
     requireSupabasePublicConfig();
   const persistentSession = options.persistentSession !== false;
@@ -20,7 +25,7 @@ export async function createClient(options: ServerClientOptions = {}) {
   return createServerClient(supabaseUrl, supabaseAnonKey, {
     cookies: {
       getAll() {
-        return cookieStore.getAll();
+        return cookieStore?.getAll() ?? [];
       },
       setAll(cookiesToSet) {
         try {
@@ -32,7 +37,7 @@ export async function createClient(options: ServerClientOptions = {}) {
                   expires: undefined,
                   maxAge: undefined,
                 };
-            cookieStore.set(name, value, normalizedOptions);
+            cookieStore?.set(name, value, normalizedOptions);
           });
         } catch {
           // Server Components cannot write cookies. The proxy refreshes them.

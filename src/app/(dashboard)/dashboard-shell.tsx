@@ -47,6 +47,8 @@ function DashboardShellInner({ children }: { children: React.ReactNode }) {
       </div>
     );
 
+  const isAllowed = pathname ? isRouteAllowed(pathname) : true;
+
   return (
     <div className="dashboard-shell flex h-screen min-w-0 overflow-hidden bg-[#f8fafc] text-[#0f172a]">
       <Sidebar open={sidebarOpen} onClose={closeSidebar} />
@@ -60,7 +62,14 @@ function DashboardShellInner({ children }: { children: React.ReactNode }) {
               : 'overflow-x-auto overflow-y-auto px-4 py-5 sm:px-6 sm:py-6 lg:px-7 lg:py-6'
           )}
         >
-          {isInbox ? (
+          {!isAllowed ? (
+            <div className="flex h-64 w-full flex-col items-center justify-center text-slate-500">
+              <Loader2 className="mb-2 h-6 w-6 animate-spin text-[#10b981]" />
+              <p className="text-xs font-semibold">
+                Redirecting to available workspace view...
+              </p>
+            </div>
+          ) : isInbox ? (
             <DashboardErrorBoundary onLogin={() => router.push('/login')}>
               {children}
             </DashboardErrorBoundary>

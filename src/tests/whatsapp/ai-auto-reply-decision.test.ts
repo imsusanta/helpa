@@ -519,4 +519,80 @@ describe('AI Receptionist Auto-Reply Decision Engine & Automations Coexistence',
 
     expect(engineSendText).not.toHaveBeenCalled();
   });
+
+  // Test 10: 30-minute auto-resume
+  it('Test 10: Auto-resumes AI when chat was disabled but inactive for >30 minutes', async () => {
+    mockState.conversationData.ai_chat_enabled = false;
+    mockState.conversationData.ai_handoff_required = true;
+    mockState.conversationData.ai_reply_count = 0;
+
+    // Previous message was 40 minutes ago
+    const fortyMinutesAgo = new Date(Date.now() - 40 * 60 * 1000).toISOString();
+    mockState.messagesData.length = 0;
+    mockState.messagesData.push(
+      {
+        id: 'msg-now',
+        sender_type: 'customer',
+        content_type: 'text',
+        content_text: 'Are you available tomorrow?',
+        created_at: new Date().toISOString(),
+      },
+      {
+        id: 'msg-old',
+        sender_type: 'agent',
+        content_type: 'text',
+        content_text: 'Let me check with doctor',
+        created_at: fortyMinutesAgo,
+      }
+    );
+
+    await triggerAiResponse({
+      accountId: 'acc-1',
+      userId: 'usr-1',
+      conversationId: 'conv-123',
+      contactId: 'cnt-1',
+    });
+
+    // Should have auto-resumed and sent the AI reply
+    expect(mockState.conversationData.ai_chat_enabled).toBe(true);
+    expect(mockState.conversationData.ai_handoff_required).toBe(false);
+    expect(engineSendText).toHaveBeenCalled();
+  });
+
+  it('Test 11: Keeps AI disabled when chat was disabled and activity was <30 minutes ago', async () => {
+    mockState.conversationData.ai_chat_enabled = false;
+    mockState.conversationData.ai_handoff_required = true;
+    mockState.conversationData.ai_reply_count = 0;
+
+    // Previous message was 10 minutes ago
+    const tenMinutesAgo = new Date(Date.now() - 10 * 60 * 1000).toISOString();
+    mockState.messagesData.length = 0;
+    mockState.messagesData.push(
+      {
+        id: 'msg-now',
+        sender_type: 'customer',
+        content_type: 'text',
+        content_text: 'Are you available tomorrow?',
+        created_at: new Date().toISOString(),
+      },
+      {
+        id: 'msg-recent',
+        sender_type: 'agent',
+        content_type: 'text',
+        content_text: 'Looking into it',
+        created_at: tenMinutesAgo,
+      }
+    );
+
+    await triggerAiResponse({
+      accountId: 'acc-1',
+      userId: 'usr-1',
+      conversationId: 'conv-123',
+      contactId: 'cnt-1',
+    });
+
+    // Should remain disabled and skip AI reply
+    expect(mockState.conversationData.ai_chat_enabled).toBe(false);
+    expect(engineSendText).not.toHaveBeenCalled();
+  });
 });

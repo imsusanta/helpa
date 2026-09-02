@@ -56,46 +56,53 @@ AI RULES & STUDENT PROFILE UPDATES:
 1. **EXAM PREPARATION IDENTIFICATION**: When a student mentions which exam they are preparing for, or replies to a query about their preparation target, you MUST extract the exam name (e.g. "NEET") and their Student ID (if present in the context, e.g. STU-10001) into the "coaching_student_update" object in your JSON output.
 2. **ACCOMMODATIVE INQUIRIES**: Keep the conversation friendly and helpful. If they have not specified their targeted exam yet, politely ask: "Which exam are you currently preparing for? (e.g. JEE, NEET, UPSC, etc.)" so we can tailor our academy details for them.`;
 
-export const RECEPTIONIST_JSON_SCHEMA = `{
-  "reply": "your text response to the customer (keep it short, friendly, and matching the language rule)",
-  "intent": "sales" | "support" | "booking" | "complaint" | "other",
-  "lead_score": "hot" | "warm" | "cold",
-  "sentiment": "positive" | "neutral" | "negative",
-  "handoff_required": true | false,
-  "resolved": true | false,
-  "summary": "an updated, short running summary of the conversation (under 150 characters, capturing the customer's current goal/status)",
-  "faq_category": "pricing" | "delivery" | "refund" | "demo" | "general",
-  "sales_signal": true | false,
-  "is_business_enquiry": true | false,
-  "lead_confidence": 0.0,
-  "extracted_lead_info": {
+export function buildReceptionistJsonSchema(opts?: {
+  isHospitalEnabled?: boolean;
+  isCoachingEnabled?: boolean;
+}): string {
+  const fields = [
+    `  "reply": "your text response to the customer (keep it short, friendly, and matching the language rule)"`,
+    `  "intent": "sales" | "support" | "booking" | "complaint" | "other"`,
+    `  "lead_score": "hot" | "warm" | "cold"`,
+    `  "sentiment": "positive" | "neutral" | "negative"`,
+    `  "handoff_required": true | false`,
+    `  "resolved": true | false`,
+    `  "summary": "an updated, short running summary of the conversation (under 150 characters, capturing the customer's current goal/status)"`,
+    `  "faq_category": "pricing" | "delivery" | "refund" | "demo" | "general"`,
+    `  "sales_signal": true | false`,
+    `  "is_business_enquiry": true | false`,
+    `  "lead_confidence": 0.0`,
+    `  "extracted_lead_info": {
     "interested_service": "string or null",
     "budget": "string or null",
     "timeline": "string or null",
     "next_action": "string or null"
-  },
-  "hospital_patient_info": {
+  }`,
+  ];
+
+  if (opts?.isHospitalEnabled) {
+    fields.push(`  "hospital_patient_info": {
     "name": "string or null",
     "phone": "string or null",
     "gender": "Male | Female | Other | null",
     "dob": "YYYY-MM-DD string or null",
     "blood_group": "string or null",
     "emergency_contact": "string or null"
-  },
-  "hospital_booking": {
+  }`);
+    fields.push(`  "hospital_booking": {
     "action": "book | reschedule | cancel | null",
     "patient_name": "string or null (Full name of the patient this action is for)",
     "doctor_name": "string or null",
     "department": "string or null",
     "date": "YYYY-MM-DD string or null",
     "time": "HH:MM string or null"
-  },
-  "hospital_report_send": {
+  }`);
+    fields.push(`  "hospital_report_send": {
     "send_report": true | false,
     "report_id": "string or null (ID of the report to send)",
     "test_name": "string or null (Name of the test, e.g. Blood Test, CBC)"
-  },
-  "hospital_profile_update": {
+  }`);
+    fields.push(`  "hospital_profile_update": {
     "patient_id": "string or null (The Patient ID to modify, e.g. PAT-90325)",
     "name": "string or null",
     "phone": "string or null",
@@ -105,13 +112,25 @@ export const RECEPTIONIST_JSON_SCHEMA = `{
     "blood_group": "string or null",
     "emergency_contact": "string or null",
     "address": "string or null"
-  },
-  "coaching_student_update": {
+  }`);
+  }
+
+  if (opts?.isCoachingEnabled) {
+    fields.push(`  "coaching_student_update": {
     "student_id": "string or null (The Student ID to modify, e.g. STU-10001)",
     "target_exam": "string or null"
-  },
-  "emergency_detected": true | false
-}`;
+  }`);
+  }
+
+  fields.push(`  "emergency_detected": true | false`);
+
+  return `{\n${fields.join(',\n')}\n}`;
+}
+
+export const RECEPTIONIST_JSON_SCHEMA = buildReceptionistJsonSchema({
+  isHospitalEnabled: true,
+  isCoachingEnabled: true,
+});
 
 export function buildReceptionistSystemPrompt(
   input: ReceptionistPromptInput
@@ -122,16 +141,21 @@ export function buildReceptionistSystemPrompt(
   );
   const businessName = input.businessName || 'our Business';
 
-  const overrideRules = `
+  let overrideRules = `
 
 [CRITICAL INSTRUCTION - BUSINESS & SYSTEM OVERRIDE]:
-1. BUSINESS IDENTITY: You are the official AI assistant representing "${businessName}". When welcoming a new patient/customer or starting a conversation, you MUST explicitly mention "${businessName}" by name (e.g. "Welcome to *${businessName}*!").
-2. REAL-TIME DATABASE DATA ACCURACY: The "Registered Patients", "Available Doctors & Clinic Schedules", "Appointments", and "Lab Reports" sections in the Hospital Context contain the absolute, real-time database records.
-3. DOCTOR & CLINIC DETAILS: When asked about doctors, departments, consultation fees, working hours, or available slots, ALWAYS reply using the exact database details from the "Available Doctors & Clinic Schedules" list.
-4. PATIENT DETAILS & LOOKUP: When responding to a patient, prioritize their registered database details (Patient ID PAT-XXXXXX, Full Name, Blood Group, Gender, Appointments).
-5. If a patient wants to correct/edit their profile details, extract the corrections into "hospital_profile_update" with the fields to update.
-6. Never diagnose, recommend treatments/medicines, or interpret report values.
-7. SHARED WHATSAPP NUMBER DISAMBIGUATION: Multiple family members (e.g. Father, Mother, Child) may share the exact same WhatsApp number. Each patient has a unique Patient ID (e.g. PAT-000021, PAT-000022). If multiple registered patients exist under this phone number and you cannot confidently identify which patient the user is asking about or booking for, ask: "I found multiple patient profiles linked to this WhatsApp number. Could you please tell me the patient's name?" Once the user specifies the name, switch to that patient profile and continue.`;
+1. BUSINESS IDENTITY: You are the official AI assistant representing "${businessName}". When welcoming a new contact/customer or starting a conversation, you MUST explicitly mention "${businessName}" by name (e.g. "Welcome to *${businessName}*!").
+2. REAL-TIME DATABASE DATA ACCURACY: When real-time database context is provided in this prompt, treat it as the absolute, authoritative source of truth.`;
+
+  if (input.isHospitalEnabled) {
+    overrideRules += `
+3. CLINICAL CONTEXT ACCURACY: The "Registered Patients", "Available Doctors & Clinic Schedules", "Appointments", and "Lab Reports" sections in the Hospital Context contain the absolute, real-time database records.
+4. DOCTOR & CLINIC DETAILS: When asked about doctors, departments, consultation fees, working hours, or available slots, ALWAYS reply using the exact database details from the "Available Doctors & Clinic Schedules" list.
+5. PATIENT DETAILS & LOOKUP: When responding to a patient, prioritize their registered database details (Patient ID PAT-XXXXXX, Full Name, Blood Group, Gender, Appointments).
+6. If a patient wants to correct/edit their profile details, extract the corrections into "hospital_profile_update" with the fields to update.
+7. Never diagnose, recommend treatments/medicines, or interpret report values.
+8. SHARED WHATSAPP NUMBER DISAMBIGUATION: Multiple family members (e.g. Father, Mother, Child) may share the exact same WhatsApp number. Each patient has a unique Patient ID (e.g. PAT-000021, PAT-000022). If multiple registered patients exist under this phone number and you cannot confidently identify which patient the user is asking about or booking for, ask: "I found multiple patient profiles linked to this WhatsApp number. Could you please tell me the patient's name?" Once the user specifies the name, switch to that patient profile and continue.`;
+  }
 
   let systemPromptContent = basePrompt + overrideRules;
   systemPromptContent += `\n\n[RESPONSE STYLE PREFERENCE]: ${getResponseStyleInstruction(
@@ -199,13 +223,19 @@ HUMAN WHATSAPP VOICE:
 
   systemPromptContent += `\n\n[LEAD QUALIFICATION]: ${qualificationPromptHint(input.industry)}`;
 
+  const jsonSchema = buildReceptionistJsonSchema({
+    isHospitalEnabled: input.isHospitalEnabled,
+    isCoachingEnabled: input.isCoachingEnabled,
+  });
+
   systemPromptContent += `\n\nCRITICAL OUTPUT FORMAT RULE: You must respond ONLY with a raw, valid JSON object matching the JSON schema below. Do not wrap the JSON block in markdown formatting (like \`\`\`json ... \`\`\`), do not output any other text before or after the JSON.
 
 JSON Schema:
-${RECEPTIONIST_JSON_SCHEMA}
+${jsonSchema}
 
 Note:
 - HUMAN TONE: Keep the "reply" to 1–3 short sentences, like a person on WhatsApp. No brochure phrasing.
+- HUMAN HANDOFF & UNKNOWN QUESTIONS: If a customer asks a complex question, custom requirement, or topic whose factual answer is NOT available in the provided Knowledge Base or Database Context, or explicitly requests to speak with a human/agent/staff, set "handoff_required": true in your JSON output and reply politely that a staff member will connect with them shortly.
 - Set "sales_signal" and "is_business_enquiry" to true only for a genuine business enquiry or buying intent (pricing, booking, package, appointment, property, course). Greetings such as "Hi" or "Hello" are NOT enquiries — set both to false and do not invent a lead.
 - Under "extracted_lead_info", populate only the fields mentioned by the customer. Use null for any details not mentioned or unknown. Do not invent facts.`;
 

@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
-import { requireRole } from '@/lib/auth/account';
+import { toErrorResponse } from '@/lib/auth/account';
+import { requireHealthWorkplace } from '@/lib/auth/industry';
 import { getAdminClient } from '@/lib/db/server';
 import {
   engineSendDocument,
@@ -8,7 +9,7 @@ import {
 
 export async function POST(request: Request) {
   try {
-    const { accountId, userId } = await requireRole('agent');
+    const { accountId, userId } = await requireHealthWorkplace('agent');
     if (!accountId) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
@@ -165,10 +166,6 @@ export async function POST(request: Request) {
       message: 'PDF uploaded and recorded successfully',
     });
   } catch (err: unknown) {
-    console.error('[Upload Patient PDF] Exception:', err);
-    return NextResponse.json(
-      { error: (err as Error).message || 'Internal Server Error' },
-      { status: 500 }
-    );
+    return toErrorResponse(err);
   }
 }

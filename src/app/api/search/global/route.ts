@@ -30,6 +30,15 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
 
     const context = await requireRole('viewer');
     const supabase = getSupabaseAdminClient();
+    const accountIndustry = (context.account as { industry?: string })
+      ?.industry;
+    const supportsAppointments = [
+      'hospital_clinic',
+      'salon',
+      'travel',
+    ].includes(
+      accountIndustry === 'health' ? 'hospital_clinic' : accountIndustry || ''
+    );
 
     const [contactsRes, dealsRes, appointmentsRes] = await Promise.all([
       // 1. Search Contacts
@@ -50,13 +59,17 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
         .ilike('name', `%${q}%`)
         .limit(10),
 
-      // 3. Search Appointments
-      supabase
-        .from('appointments')
-        .select('id, starts_at, status, notes, contact:contacts(name, phone)')
-        .eq('account_id', context.accountId)
-        .ilike('notes', `%${q}%`)
-        .limit(10),
+      // 3. Search Appointments (only for industries supporting appointments)
+      supportsAppointments
+        ? supabase
+            .from('appointments')
+            .select(
+              'id, starts_at, status, notes, contact:contacts(name, phone)'
+            )
+            .eq('account_id', context.accountId)
+            .ilike('notes', `%${q}%`)
+            .limit(10)
+        : Promise.resolve({ data: [] }),
     ]);
 
     return NextResponse.json(

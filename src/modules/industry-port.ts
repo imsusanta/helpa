@@ -16,7 +16,11 @@ import {
 import { getAdminClient } from '@/lib/db/server';
 import { matchTourPackagesForMessage } from '@/lib/travel/retrieval';
 import { buildTravelPackagePromptBlock } from '@/lib/travel/prompt';
-import { getIndustryModule, resolveSystemPrompt } from './registry';
+import {
+  getIndustryModule,
+  resolveSystemPrompt,
+  INDUSTRY_REGISTRY,
+} from './registry';
 import { resolveIndustryAlias } from './terminology';
 
 function toCoreManifest(industry?: string | null): CoreIndustryManifest {
@@ -52,6 +56,15 @@ export const modulesIndustryPort: IndustryModulePort = {
       userMessage
     );
     return systemPrompt + buildTravelPackagePromptBlock(packageResult);
+  },
+  getSeededKnowledgeTitles: () => {
+    const titles = new Set<string>();
+    for (const industryModule of Object.values(INDUSTRY_REGISTRY)) {
+      for (const template of industryModule.kbTemplates ?? []) {
+        if (template.questionTitle) titles.add(template.questionTitle);
+      }
+    }
+    return titles;
   },
 };
 

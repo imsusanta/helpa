@@ -1243,10 +1243,22 @@ export async function processMessage(
     const assignedAgent = Boolean(
       conversation.assigned_agent_id || conversation.assignedAgentId
     );
-    const aiDisabledOnConv =
+    let aiDisabledOnConv =
       conversation.ai_chat_enabled === false ||
       conversation.ai_autoreply_disabled === true ||
       conversation.is_ai_enabled === false;
+
+    // 30-minute auto-resume check: If AI was paused or handed off but staff has been inactive for >30m, allow AI to re-engage
+    const HANDOFF_AUTO_RESUME_MS = 30 * 60 * 1000;
+    const lastMsgAt = conversation.last_message_at
+      ? new Date(conversation.last_message_at as string).getTime()
+      : 0;
+    const isInactiveOver30Mins =
+      lastMsgAt > 0 && Date.now() - lastMsgAt > HANDOFF_AUTO_RESUME_MS;
+
+    if (aiDisabledOnConv && isInactiveOver30Mins && !assignedAgent) {
+      aiDisabledOnConv = false;
+    }
 
     const shouldTriggerAiBase =
       !flowConsumed &&

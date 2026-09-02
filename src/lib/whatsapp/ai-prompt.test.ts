@@ -1,8 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import {
-  RECEPTIONIST_JSON_SCHEMA,
-  buildReceptionistSystemPrompt,
-} from './ai-prompt';
+import { buildReceptionistSystemPrompt } from './ai-prompt';
 
 const BASE = {
   industry: 'health' as const,
@@ -22,8 +19,8 @@ describe('buildReceptionistSystemPrompt', () => {
   it('names the clinic and requires JSON output', () => {
     const prompt = buildReceptionistSystemPrompt(BASE);
     expect(prompt).toContain('Siliguri Nursing Home');
-    expect(prompt).toContain('CRITICAL OUTPUT FORMAT RULE');
-    expect(prompt).toContain(RECEPTIONIST_JSON_SCHEMA);
+    expect(prompt).toContain('JSON Schema:');
+    expect(prompt).toContain('"hospital_patient_info"');
     expect(prompt).toContain('emergency_detected');
   });
 

@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { getAdminClient } from '@/lib/db/server';
-import { requireRole, toErrorResponse } from '@/lib/auth/account';
+import { toErrorResponse } from '@/lib/auth/account';
+import { requireHealthWorkplace } from '@/lib/auth/industry';
 import { logger } from '@/lib/observability/logger';
 import {
   checkRateLimit,
@@ -17,8 +18,8 @@ export async function DELETE(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    // 1. Authenticate and authorize — only owner can permanently delete patient data
-    const ctx = await requireRole('owner');
+    // 1. Authenticate and authorize — only owner of Health workplace can permanently delete patient data
+    const ctx = await requireHealthWorkplace('owner');
     const accountId = ctx.accountId;
     const actorId = ctx.userId;
 

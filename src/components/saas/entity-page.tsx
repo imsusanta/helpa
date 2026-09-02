@@ -669,10 +669,12 @@ export function EntityPage({ entityKey }: { entityKey: string }) {
         const { data: firstContact } = await db
           .from('contacts')
           .select('id')
+          .eq('account_id', accountId)
           .limit(1);
         const { data: firstCourse } = await db
           .from('coaching_courses')
           .select('id')
+          .eq('account_id', accountId)
           .limit(1);
 
         let studentId = firstContact?.[0]?.id;

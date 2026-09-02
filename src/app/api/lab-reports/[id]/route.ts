@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { requireRole, toErrorResponse } from '@/lib/auth/account';
+import { toErrorResponse } from '@/lib/auth/account';
+import { requireHealthWorkplace } from '@/lib/auth/industry';
 import { getAdminClient as getSupabaseAdminClient } from '@/lib/supabase/server';
 
 const PRIVATE_HEADERS = {
@@ -12,7 +13,7 @@ export async function PUT(
 ): Promise<NextResponse> {
   try {
     const { id } = await params;
-    const context = await requireRole('agent');
+    const context = await requireHealthWorkplace('agent');
     const supabase = getSupabaseAdminClient();
     const body = await request.json();
 
@@ -68,7 +69,7 @@ export async function DELETE(
 ): Promise<NextResponse> {
   try {
     const { id } = await params;
-    const context = await requireRole('admin');
+    const context = await requireHealthWorkplace('admin');
     const supabase = getSupabaseAdminClient();
 
     const { error } = await supabase

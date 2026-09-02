@@ -1,7 +1,7 @@
 import {
   resolveIndustryAlias,
   type CanonicalIndustry,
-} from '@/modules/terminology';
+} from '@/core/modules/terminology';
 
 export type BookingFieldVisibility = { show: boolean; required: boolean };
 

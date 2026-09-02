@@ -473,12 +473,22 @@ export function registerTourPackageTools(registry: ToolRegistry): void {
             },
           };
         }
+        let errorMessage = 'Could not confirm the Travel Booking.';
+        if (
+          result.status === 'missing_package' ||
+          result.status === 'no_pending'
+        ) {
+          errorMessage = 'No Tour Package is ready to confirm yet.';
+        } else if (result.status === 'unavailable') {
+          errorMessage = `The Tour Package ${result.packageName} is currently unavailable (${result.reason}).`;
+        } else if (result.status === 'price_changed') {
+          errorMessage = `The Tour Package price has updated to ${result.currency} ${result.newPrice}.`;
+        } else if (result.status === 'failed') {
+          errorMessage = result.error;
+        }
         return {
           success: false,
-          error:
-            result.status === 'missing_package'
-              ? 'No Tour Package is ready to confirm yet.'
-              : result.error,
+          error: errorMessage,
         };
       } catch (error) {
         logger.error('confirmTravelBooking failed', {

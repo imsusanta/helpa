@@ -1,11 +1,12 @@
 import { NextResponse } from 'next/server';
-import { requireRole } from '@/lib/auth/account';
+import { toErrorResponse } from '@/lib/auth/account';
+import { requireHealthWorkplace } from '@/lib/auth/industry';
 import { getAdminClient } from '@/lib/db/server';
 import { getOrGeneratePatientId } from '@/lib/patients/id-generator';
 
 export async function GET(request: Request) {
   try {
-    const ctx = await requireRole('agent');
+    const ctx = await requireHealthWorkplace('agent');
     const { searchParams } = new URL(request.url);
     const phone = searchParams.get('phone')?.trim() || '';
     const queryTerm = searchParams.get('query')?.trim() || '';
@@ -79,7 +80,6 @@ export async function GET(request: Request) {
 
     return NextResponse.json({ patients: result });
   } catch (err: unknown) {
-    console.error('[GET /api/patients/search] exception:', err);
-    return NextResponse.json({ patients: [] }, { status: 200 });
+    return toErrorResponse(err);
   }
 }

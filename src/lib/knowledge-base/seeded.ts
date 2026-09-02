@@ -1,4 +1,4 @@
-import { INDUSTRY_REGISTRY } from '@/modules/registry';
+import { getIndustryModulePort } from '@/core/modules/industry-port';
 
 export const COMPANY_HOURS_TITLE =
   'Where are you located and what are your business hours?';
@@ -11,11 +11,10 @@ let cachedTitles: Set<string> | null = null;
 export function collectSeededKnowledgeTitles(): Set<string> {
   if (cachedTitles) return cachedTitles;
 
-  const titles = new Set<string>([COMPANY_HOURS_TITLE]);
-  for (const industryModule of Object.values(INDUSTRY_REGISTRY)) {
-    for (const template of industryModule.kbTemplates ?? []) {
-      if (template.questionTitle) titles.add(template.questionTitle);
-    }
+  const titles = new Set<string>([COMPANY_HOURS_TITLE, 'Company Hours']);
+  const portTitles = getIndustryModulePort().getSeededKnowledgeTitles?.() ?? [];
+  for (const t of portTitles) {
+    if (t) titles.add(t);
   }
   cachedTitles = titles;
   return titles;

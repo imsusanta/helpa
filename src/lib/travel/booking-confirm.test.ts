@@ -37,6 +37,10 @@ vi.mock('@/lib/db/server', () => {
         filters.push((row) => row[field] === value);
         return api;
       },
+      in: (field: string, values: unknown[]) => {
+        filters.push((row) => Array.isArray(values) && values.includes(row[field]));
+        return api;
+      },
       ilike: (field: string, value: string) => {
         const needle = value.toLowerCase();
         filters.push((row) =>
@@ -46,6 +50,7 @@ vi.mock('@/lib/db/server', () => {
         );
         return api;
       },
+      order: () => api,
       limit: () => api,
       insert: (row: Record<string, unknown>) => {
         op = 'insert';
@@ -58,21 +63,24 @@ vi.mock('@/lib/db/server', () => {
         return api;
       },
       maybeSingle: async () => {
-        const row = h.tables[table].find((item) =>
+        const rows = (h.tables as Record<string, Array<Record<string, unknown>>>)[table] ?? [];
+        const row = rows.find((item) =>
           filters.every((filter) => filter(item))
         );
         return { data: row ?? null, error: null };
       },
       single: async () => {
+        const all = h.tables as Record<string, Array<Record<string, unknown>>>;
+        if (!all[table]) all[table] = [];
         if (op === 'insert' && payload) {
           const created = {
-            id: `${table}-${h.tables[table].length + 1}`,
+            id: `${table}-${all[table].length + 1}`,
             ...payload,
           };
-          h.tables[table].push(created);
+          all[table].push(created);
           return { data: created, error: null };
         }
-        const row = h.tables[table].find((item) =>
+        const row = all[table].find((item) =>
           filters.every((filter) => filter(item))
         );
         return {
@@ -84,25 +92,27 @@ vi.mock('@/lib/db/server', () => {
         onF: (value: { data: unknown; error: null }) => unknown,
         onR?: (reason: unknown) => unknown
       ) => {
+        const all = h.tables as Record<string, Array<Record<string, unknown>>>;
+        if (!all[table]) all[table] = [];
         if (op === 'update' && payload) {
-          h.tables[table].forEach((row) => {
+          all[table].forEach((row) => {
             if (filters.every((filter) => filter(row)))
               Object.assign(row, payload);
           });
         }
         if (op === 'insert' && payload) {
           const created = {
-            id: `${table}-${h.tables[table].length + 1}`,
+            id: `${table}-${all[table].length + 1}`,
             ...payload,
           };
-          h.tables[table].push(created);
+          all[table].push(created);
           return Promise.resolve({ data: [created], error: null }).then(
             onF,
             onR
           );
         }
         return Promise.resolve({
-          data: h.tables[table].filter((row) =>
+          data: all[table].filter((row) =>
             filters.every((filter) => filter(row))
           ),
           error: null,
@@ -114,18 +124,87 @@ vi.mock('@/lib/db/server', () => {
   return {
     getAdminClient: () => ({
       from: (table: string) => builder(table as keyof typeof h.tables),
+      rpc: async (fn: string, args: Record<string, unknown>) => {
+        if (fn === 'claim_travel_pending_booking') {
+          const contact = h.tables.contacts.find(
+            (c) =>
+              c.id === args.p_contact_id && c.account_id === args.p_account_id
+          );
+          const meta = (contact?.metadata ?? {}) as Record<string, unknown>;
+          const pending = meta.travel_pending_booking;
+          if (!pending) return { data: { status: 'none' }, error: null };
+          delete meta.travel_pending_booking;
+          return { data: { status: 'claimed', pending }, error: null };
+        }
+        if (fn === 'create_travel_booking') {
+          const booking = {
+            id: `tb-${h.tables.travel_bookings.length + 1}`,
+            account_id: args.p_account_id,
+            tour_package_id: args.p_tour_package_id,
+            contact_id: args.p_contact_id,
+            travel_date: args.p_travel_date,
+            guests_count: args.p_guests_count,
+            total_price: args.p_total_price,
+            currency: args.p_currency,
+            status: 'Confirmed',
+          };
+          h.tables.travel_bookings.push(booking);
+          h.tables.appointments.push({
+            id: `appt-${h.tables.appointments.length + 1}`,
+            account_id: args.p_account_id,
+            patient_id: args.p_contact_id,
+            status: 'Confirmed',
+            notes: `Travel booking for ${args.p_package_name}`,
+          });
+          return {
+            data: { status: 'created', booking_id: booking.id },
+            error: null,
+          };
+        }
+        return { data: null, error: null };
+      },
     }),
   };
 });
 
-vi.mock('@/lib/travel/retrieval', () => ({
-  matchTourPackagesForMessage: vi.fn(async () => ({
-    matches: [],
-    nearMatches: [],
-    retrievalFailed: false,
-    requirements: {},
-  })),
-}));
+vi.mock('@/lib/travel/retrieval', async (importOriginal) => {
+  const actual =
+    await importOriginal<typeof import('@/lib/travel/retrieval')>();
+  return {
+    ...actual,
+    matchTourPackagesForMessage: vi.fn(async (_db, accountId, message) => {
+      const pkg = h.tables.tour_packages.find(
+        (p) =>
+          p.account_id === accountId &&
+          String(p.name).toLowerCase() === String(message).toLowerCase()
+      );
+      if (pkg) {
+        const detail = {
+          ...pkg,
+          currency: 'INR',
+          itineraries: [],
+          inclusions: [],
+          exclusions: [],
+          hotels: [],
+          pricing: [],
+          departures: [],
+        };
+        return {
+          matches: [{ package: detail, score: 1, matchedBy: 'name' }],
+          nearMatches: [],
+          retrievalFailed: false,
+          requirements: {},
+        };
+      }
+      return {
+        matches: [],
+        nearMatches: [],
+        retrievalFailed: false,
+        requirements: {},
+      };
+    }),
+  };
+});
 
 import {
   TRAVEL_BOOKING_CONFIRM_BUTTON_ID,
@@ -137,11 +216,24 @@ import {
   storePendingTravelBooking,
 } from './booking-confirm';
 
+const freshPendingSample = {
+  package_id: 'p1',
+  package_name: 'Kashmir Delight',
+  destination: 'Kashmir',
+  travel_date: '2026-09-10',
+  guests_count: 2,
+  total_price: 27999,
+  currency: 'INR',
+  conversation_id: 'conv1',
+  offered_at: new Date().toISOString(),
+};
+
 describe('travel booking confirm helpers', () => {
   it('classifies the Confirm Booking button and numbered Evolution reply', () => {
     expect(
       classifyTravelBookingReply({
         replyId: TRAVEL_BOOKING_CONFIRM_BUTTON_ID,
+        pending: freshPendingSample,
       })
     ).toBe('confirm');
     expect(
@@ -152,19 +244,19 @@ describe('travel booking confirm helpers', () => {
     expect(
       classifyTravelBookingReply({
         text: '1',
-        hasFreshPending: true,
+        pending: freshPendingSample,
       })
     ).toBe('confirm');
     expect(
       classifyTravelBookingReply({
         text: '1',
-        hasFreshPending: false,
+        pending: null,
       })
     ).toBeNull();
     expect(
       classifyTravelBookingReply({
         text: 'booking confirm',
-        hasFreshPending: true,
+        pending: freshPendingSample,
       })
     ).toBe('confirm');
   });
@@ -206,7 +298,6 @@ describe('travel booking confirm helpers', () => {
       travelDate: '2026-09-10',
       guestsCount: 2,
       totalPrice: 27999,
-      totalPriceLabel: '₹27,999',
     });
     expect(message.bodyText).toContain('Kashmir Delight');
     expect(message.bodyText).toContain('Confirm Booking');
@@ -237,6 +328,7 @@ describe('confirmPendingTravelBooking', () => {
         duration_days: 5,
         starting_price: 27999,
         description: '5D4N',
+        status: 'active',
       },
     ];
     h.tables.travel_bookings = [];
@@ -244,12 +336,16 @@ describe('confirmPendingTravelBooking', () => {
     h.tables.contact_notes = [];
   });
 
+  const futureDate = new Date(Date.now() + 14 * 24 * 60 * 60 * 1000)
+    .toISOString()
+    .slice(0, 10);
+
   it('creates a tenant-scoped booking after Confirm Booking', async () => {
     await storePendingTravelBooking('acct-travel', 'contact-1', {
       package_id: 'tour-1',
       package_name: 'Kashmir Delight',
       destination: 'Kashmir',
-      travel_date: '2026-09-10',
+      travel_date: futureDate,
       guests_count: 2,
       total_price: 27999,
       currency: 'INR',
@@ -270,7 +366,7 @@ describe('confirmPendingTravelBooking', () => {
       expect.objectContaining({
         account_id: 'acct-travel',
         contact_id: 'contact-1',
-        travel_date: '2026-09-10',
+        travel_date: futureDate,
         guests_count: 2,
         total_price: 27999,
         status: 'Confirmed',
@@ -306,7 +402,7 @@ describe('confirmPendingTravelBooking', () => {
       package_id: 'tour-other',
       package_name: 'Secret Trip',
       destination: 'Goa',
-      travel_date: '2026-09-10',
+      travel_date: futureDate,
       guests_count: 1,
       total_price: 999,
       currency: 'INR',
@@ -334,7 +430,7 @@ describe('confirmPendingTravelBooking', () => {
       package_id: null,
       package_name: 'Kashmir Delight',
       destination: 'Kashmir',
-      travel_date: '2026-09-10',
+      travel_date: futureDate,
       guests_count: 1,
       total_price: 27999,
       currency: 'INR',

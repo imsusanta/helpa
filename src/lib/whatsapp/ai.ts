@@ -118,6 +118,66 @@ export async function triggerAiResponse(
     );
     return;
   }
+
+  // Auto-resume check: If AI is disabled (e.g. following a human handoff) and
+  // the conversation is unassigned, check if the last activity was > 30 minutes ago.
+  // If staff has been inactive for > 30 minutes, automatically resume AI auto-pilot.
+  const fetchedMessages = (messagesRes.data ?? []) as HistoryMessage[];
+  const HANDOFF_AUTO_RESUME_MS = 30 * 60 * 1000;
+  const isAssigned = Boolean(
+    conversation.assigned_agent_id || conversation.assignedAgentId
+  );
+  const isAiDisabled =
+    conversation.ai_chat_enabled === false ||
+    conversation.ai_autoreply_disabled === true ||
+    conversation.is_ai_enabled === false ||
+    conversation.ai_handoff_required === true;
+
+  if (isAiDisabled && !isAssigned) {
+    const prevMsg =
+      fetchedMessages.length > 1 ? fetchedMessages[1] : fetchedMessages[0];
+    const lastActivityTime = prevMsg?.created_at
+      ? new Date(prevMsg.created_at).getTime()
+      : conversation.last_message_at
+        ? new Date(conversation.last_message_at as string).getTime()
+        : 0;
+
+    if (
+      lastActivityTime > 0 &&
+      Date.now() - lastActivityTime > HANDOFF_AUTO_RESUME_MS
+    ) {
+      console.log(
+        `[AI Assistant] Auto-resuming AI for conversation ${conversationId} after >30m inactivity.`
+      );
+      conversation.ai_chat_enabled = true;
+      conversation.ai_handoff_required = false;
+      conversation.ai_autoreply_disabled = false;
+      conversation.is_ai_enabled = true;
+
+      await db
+        .from('conversations')
+        .update({
+          ai_chat_enabled: true,
+          ai_handoff_required: false,
+          ai_autoreply_disabled: false,
+        })
+        .eq('id', conversationId);
+
+      await db.from('messages').insert({
+        account_id: accountId,
+        conversation_id: conversationId,
+        direction: 'outbound',
+        sender_type: 'bot',
+        content_type: 'text',
+        content_text:
+          '[System] AI auto-pilot resumed automatically after 30 minutes of staff inactivity.',
+        message_id: `system-resume-${conversationId}-${Date.now()}`,
+        status: 'delivered',
+        created_at: new Date().toISOString(),
+      });
+    }
+  }
+
   const skipDecision = shouldSkipAiConversation(conversation);
   if (skipDecision.skip) {
     if (skipDecision.reason === 'assigned') {
@@ -380,17 +440,32 @@ export async function triggerAiResponse(
     )
   );
 
+  const industryModuleForContext = getIndustryModulePort().getIndustryModule(
+    account?.industry
+  );
+  const isHospitalEnabled = isHospitalIndustryEnabled(
+    account?.industry,
+    industryModuleForContext.id
+  );
+  const isCoachingEnabled = industryModuleForContext.id === 'coaching';
+  const isSoloTeacherEnabled = industryModuleForContext.id === 'solo_teacher';
+  const isTravelEnabled = industryModuleForContext.id === 'travel';
+  const entityLabelForContext =
+    industryModuleForContext.entityLabel || 'Contact';
+
   let registeredPatientIds: string[] = [];
-  try {
-    const { data: patsData } = await db
-      .from('patients')
-      .select('id, patient_seq_id')
-      .in('id', contactIds);
-    if (patsData && patsData.length > 0) {
-      registeredPatientIds = patsData.map((p: { id: string }) => p.id);
+  if (isHospitalEnabled) {
+    try {
+      const { data: patsData } = await db
+        .from('patients')
+        .select('id, patient_seq_id')
+        .in('id', contactIds);
+      if (patsData && patsData.length > 0) {
+        registeredPatientIds = patsData.map((p: { id: string }) => p.id);
+      }
+    } catch {
+      // ignore
     }
-  } catch {
-    // ignore
   }
 
   const allPatientAndContactIds = Array.from(
@@ -404,18 +479,6 @@ export async function triggerAiResponse(
     answer_content: string;
   }> | null;
   const kbContext = formatKnowledgeBaseContext(kbEntries);
-
-  const industryModuleForContext = getIndustryModulePort().getIndustryModule(
-    account?.industry
-  );
-  const isHospitalEnabled = isHospitalIndustryEnabled(
-    account?.industry,
-    industryModuleForContext.id
-  );
-  const isCoachingEnabled = industryModuleForContext.id === 'coaching';
-  const isSoloTeacherEnabled = industryModuleForContext.id === 'solo_teacher';
-  const isTravelEnabled = industryModuleForContext.id === 'travel';
-  const entityLabelForContext = industryModuleForContext.entityLabel || 'Contact';
 
   const { hospitalContext, coachingContext, labReports } =
     await buildIndustryAiContext(db, {

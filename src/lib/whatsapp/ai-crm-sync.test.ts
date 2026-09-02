@@ -187,3 +187,25 @@ describe('syncDealPipeline', () => {
     await expect(syncDealPipeline(db, ARGS)).resolves.toBeUndefined();
   });
 });
+
+describe('updateConversationInsights', () => {
+  it('disables AI autopilot and sets ai_handoff_required when handoff is required', async () => {
+    const { db, updates } = stubDb({});
+    const handoffInsights = extractStructuredInsights({
+      intent: 'support',
+      handoff_required: true,
+      summary: 'Customer requested human agent',
+    });
+
+    await updateConversationInsights(db, {
+      conversationId: 'conv-123',
+      insights: handoffInsights,
+    });
+
+    expect(updates).toHaveLength(1);
+    expect(updates[0].table).toBe('conversations');
+    expect(updates[0].payload.ai_handoff_required).toBe(true);
+    expect(updates[0].payload.ai_chat_enabled).toBe(false);
+    expect(updates[0].filters.id).toBe('conv-123');
+  });
+});
