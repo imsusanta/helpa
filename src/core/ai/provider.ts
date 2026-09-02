@@ -83,7 +83,7 @@ export class OpenRouterProvider implements AiProvider {
     const model = options?.model || 'google/gemini-2.5-flash';
     const temperature = options?.temperature ?? 0.3;
     const maxTokens = options?.maxTokens ?? 1000;
-    const timeoutMs = options?.timeoutMs ?? 30000;
+    const timeoutMs = options?.timeoutMs ?? 15000;
 
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
@@ -109,6 +109,10 @@ export class OpenRouterProvider implements AiProvider {
               sort: 'latency',
               allow_fallbacks: true,
             },
+            reasoning: {
+              max_tokens: 0,
+            },
+            include_reasoning: false,
             ...(options?.responseFormat
               ? { response_format: options.responseFormat }
               : {}),
@@ -220,7 +224,7 @@ export class OrcaRouterProvider implements AiProvider {
     const model = options?.model || 'orcarouter/auto';
     const temperature = options?.temperature ?? 0.3;
     const maxTokens = options?.maxTokens ?? 1000;
-    const timeoutMs = options?.timeoutMs ?? 30000;
+    const timeoutMs = options?.timeoutMs ?? 15000;
 
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
@@ -240,6 +244,10 @@ export class OrcaRouterProvider implements AiProvider {
           messages,
           temperature,
           max_tokens: maxTokens,
+          reasoning: {
+            max_tokens: 0,
+          },
+          include_reasoning: false,
           ...(options?.responseFormat
             ? { response_format: options.responseFormat }
             : {}),
@@ -363,7 +371,7 @@ export class CloudflareAiProvider implements AiProvider {
 
     const model = options?.model || '@cf/meta/llama-3.1-8b-instruct';
     const maxTokens = options?.maxTokens ?? 1000;
-    const timeoutMs = options?.timeoutMs ?? 30000;
+    const timeoutMs = options?.timeoutMs ?? 10000;
 
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), timeoutMs);

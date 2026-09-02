@@ -104,7 +104,7 @@ export async function triggerAiResponse(
       .eq('conversation_id', conversationId)
       .eq('account_id', accountId)
       .order('created_at', { ascending: false })
-      .limit(50),
+      .limit(15),
     db
       .from('knowledge_base')
       .select('category, question_title, answer_content')
@@ -562,7 +562,8 @@ export async function triggerAiResponse(
       messages: apiMessages,
       options: {
         temperature: 0.2,
-        maxTokens: 1200,
+        maxTokens: 400,
+        timeoutMs: 8000,
         responseFormat: { type: 'json_object' },
       },
       resolutionParams: {
@@ -581,7 +582,8 @@ export async function triggerAiResponse(
         messages: apiMessages,
         options: {
           temperature: 0.2,
-          maxTokens: 1200,
+          maxTokens: 400,
+          timeoutMs: 8000,
         },
         resolutionParams: {
           accountId,

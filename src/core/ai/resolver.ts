@@ -28,11 +28,11 @@ import {
 } from './failover-state';
 
 const PROVIDER_ORDER: AiProviderName[] = [
-  'cloudflare',
   'openrouter',
+  'cloudflare',
   'orcarouter',
 ];
-const MAX_PRIMARY_ATTEMPTS = 2;
+const MAX_PRIMARY_ATTEMPTS = 1;
 const MAX_FALLBACK_ATTEMPTS = 1;
 const RATE_LIMIT_COOLDOWN_MS = 30 * 60 * 1000;
 const TRANSIENT_COOLDOWN_MS = 10 * 60 * 1000;
@@ -92,7 +92,7 @@ export async function resolveAccountAiConfig(
   accountId?: string,
   overrides?: Partial<ProviderResolutionParams>
 ): Promise<ResolvedProviderConfig> {
-  let primaryName: AiProviderName = overrides?.primaryProvider || 'cloudflare';
+  let primaryName: AiProviderName = overrides?.primaryProvider || 'openrouter';
   let fallbackName: AiProviderName | 'none' =
     overrides?.fallbackProvider ?? 'none';
   let configuredFallbacks: AiProviderName[] = [];
