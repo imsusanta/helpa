@@ -1,303 +1,430 @@
+'use client';
+
+import { useState } from 'react';
 import Link from 'next/link';
 import {
-  CalendarCheck,
-  MessageCircle,
-  Sparkles,
+  MessageSquare,
+  Zap,
+  Calendar,
   Users,
-  SlidersHorizontal,
-  TrendingUp,
-  BarChart3,
+  ArrowRight,
+  User,
+  Sliders,
+  BarChart2,
+  Settings,
+  MoreVertical,
+  Paperclip,
+  Smile,
+  Send,
+  CheckCheck,
+  ChevronDown,
+  Bot,
 } from 'lucide-react';
 
 interface HeroProps {
   isAuthenticated: boolean;
 }
 
-const outcomes = [
-  { icon: MessageCircle, label: 'Reply to customers 24/7' },
-  { icon: Users, label: 'Capture and qualify leads' },
-  { icon: CalendarCheck, label: 'Book appointments automatically' },
-];
-
-const tabs = [
-  { icon: Users, label: 'Capture' },
-  { icon: SlidersHorizontal, label: 'Automate' },
-  { icon: TrendingUp, label: 'Scale' },
-  { icon: BarChart3, label: 'Analyze' },
-];
-
 export function LandingHero({ isAuthenticated }: HeroProps) {
+  const [activeTab, setActiveTab] = useState<'all' | 'open' | 'pending' | 'closed'>('all');
+  const [activeConversation, setActiveConversation] = useState(0);
+
+  const conversations = [
+    {
+      id: 0,
+      name: 'Priya Singh',
+      role: 'Lead',
+      phone: '+91 98765 43210',
+      avatar: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=150&auto=format&fit=crop&q=80',
+      lastMsg: 'Hi, I want to know about your service and pricing.',
+      time: '10:30 AM',
+      unread: 2,
+      messages: [
+        { sender: 'user', text: 'Hi 👋\nI want to know about your service and pricing.', time: '10:30 AM' },
+        { sender: 'bot', text: 'Hello Priya! 👋\nThanks for reaching out to us. How can I help you today?', time: '10:31 AM' },
+        { sender: 'user', text: 'Yes, please share the pricing.', time: '10:31 AM' },
+        { sender: 'bot', text: 'Sure! Here are our plans...', time: '10:32 AM' },
+      ],
+    },
+    {
+      id: 1,
+      name: 'Ravi Sharma',
+      role: 'Customer',
+      phone: '+91 98123 45678',
+      avatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150&auto=format&fit=crop&q=80',
+      lastMsg: 'Can I book an appointment for tomorrow?',
+      time: '10:15 AM',
+      unread: 1,
+      messages: [
+        { sender: 'user', text: 'Can I book an appointment for tomorrow?', time: '10:15 AM' },
+        { sender: 'bot', text: 'Sure Ravi! We have slots available at 11:00 AM and 3:00 PM. Which one suits you?', time: '10:16 AM' },
+      ],
+    },
+    {
+      id: 2,
+      name: 'Amit Verma',
+      role: 'Lead',
+      phone: '+91 97111 22334',
+      avatar: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=150&auto=format&fit=crop&q=80',
+      lastMsg: 'Do you provide support on weekends?',
+      time: '09:45 AM',
+      unread: 0,
+      messages: [
+        { sender: 'user', text: 'Do you provide support on weekends?', time: '09:45 AM' },
+        { sender: 'bot', text: 'Yes Amit! Our AI receptionist works 24/7, 365 days a year without breaks!', time: '09:46 AM' },
+      ],
+    },
+    {
+      id: 3,
+      name: 'Neha Patel',
+      role: 'Lead',
+      phone: '+91 96543 21098',
+      avatar: 'https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=150&auto=format&fit=crop&q=80',
+      lastMsg: 'Please share the details on your services.',
+      time: '09:30 AM',
+      unread: 0,
+      messages: [
+        { sender: 'user', text: 'Please share the details on your services.', time: '09:30 AM' },
+        { sender: 'bot', text: 'Sending our complete service catalog brochure right away 📄', time: '09:31 AM' },
+      ],
+    },
+    {
+      id: 4,
+      name: 'Vikram Das',
+      role: 'Customer',
+      phone: '+91 95432 10987',
+      avatar: 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=150&auto=format&fit=crop&q=80',
+      lastMsg: 'Thanks for the information!',
+      time: 'Yesterday',
+      unread: 0,
+      messages: [
+        { sender: 'user', text: 'Thanks for the information!', time: 'Yesterday' },
+        { sender: 'bot', text: 'You are welcome! Have a wonderful day 😊', time: 'Yesterday' },
+      ],
+    },
+  ];
+
+  const activeContact = conversations[activeConversation];
+
   return (
-    <section className="relative overflow-hidden bg-gradient-to-b from-[#FAF9FC] via-[#F7F5FC] to-[#F1EEFA] pt-28 pb-16 sm:pt-32">
-      <div
-        className="pointer-events-none absolute inset-0 opacity-70"
-        aria-hidden="true"
-      >
-        <div className="absolute top-40 left-1/2 h-80 w-80 -translate-x-1/2 rounded-full bg-[#CFC7FF]/20 blur-3xl" />
+    <section className="relative overflow-hidden bg-gradient-to-b from-[#F9FBF9] via-[#FAFDFB] to-[#F2FAF4] pt-28 pb-16 sm:pt-32 lg:pt-36">
+      {/* Background ambient lighting */}
+      <div className="pointer-events-none absolute inset-0 opacity-60" aria-hidden="true">
+        <div className="absolute left-1/2 top-20 h-96 w-96 -translate-x-1/2 rounded-full bg-[#00A884]/10 blur-3xl" />
       </div>
 
       <div className="relative mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-        <div className="mx-auto max-w-5xl text-center">
-          <div className="mb-6 inline-flex items-center gap-2.5 rounded-full border border-emerald-300/80 bg-emerald-50/90 px-5 py-2 text-xs font-black text-emerald-900 shadow-sm backdrop-blur-md">
-            <span className="h-2 w-2 animate-pulse rounded-full bg-[#25D366] shadow-[0_0_8px_#25D366]" />
-            ✓ Official Meta WhatsApp Cloud API Partner • 150+ Indian Businesses
+        
+        {/* 1. TOP BADGE */}
+        <div className="text-center">
+          <div className="mb-6 inline-flex items-center gap-2 rounded-full bg-emerald-50 border border-emerald-200/80 px-4 py-1.5 text-xs sm:text-sm font-semibold text-[#075E54] shadow-sm">
+            <span className="h-2 w-2 rounded-full bg-[#00A884] animate-pulse" />
+            <span>Your 24/7 AI Front Desk</span>
           </div>
 
-          <h1 className="mx-auto mb-6 max-w-5xl text-5xl leading-[0.98] font-black tracking-tight text-[#110E3D] sm:text-6xl lg:text-[76px]">
-            Never Miss Another
-            <br />
-            <span className="bg-gradient-to-r from-[#075E54] via-[#25D366] to-[#075E54] bg-clip-text text-transparent">
-              WhatsApp Customer.
-            </span>
+          {/* 2. MAIN HEADLINE */}
+          <h1 className="mx-auto mb-6 max-w-5xl text-4xl font-extrabold tracking-tight text-slate-900 sm:text-5xl lg:text-6xl leading-[1.1]">
+            WhatsApp <span className="text-[#00A884]">AI</span> Receptionist<br className="hidden sm:inline" />
+            {' '}& Automation with Smart CRM
           </h1>
 
-          <p className="mx-auto mb-8 max-w-3xl text-base leading-8 font-medium text-[#5C587D] sm:text-lg lg:text-xl">
-            Helpa replies in 2 seconds, schedules appointments, captures leads,
-            and handles customer FAQs 24/7 on WhatsApp — so your front desk
-            never loses a client.
+          {/* 3. SUB-HEADLINE / PARAGRAPH */}
+          <p className="mx-auto mb-8 max-w-3xl text-base sm:text-lg text-slate-600 leading-relaxed font-normal">
+            Never miss a lead again. Our AI receptionist automates chats, qualifies leads,
+            books appointments and manages customer relationships – all on{' '}
+            <span className="text-[#00A884] font-bold">WhatsApp.</span>
           </p>
 
-          <div className="mb-8 flex flex-col items-center justify-center gap-4 sm:flex-row">
+          {/* 4. CALL TO ACTION BUTTONS */}
+          <div className="mb-12 flex flex-col items-center justify-center gap-4 sm:flex-row">
             <Link
               href={isAuthenticated ? '/dashboard' : '/signup'}
-              className="flex min-h-12 items-center gap-2.5 rounded-full bg-gradient-to-r from-[#25D366] via-[#20BA5A] to-[#075E54] px-8 py-3.5 text-base font-extrabold text-white shadow-lg shadow-[#25D366]/25 transition hover:scale-[1.04] hover:shadow-xl focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#075E54]"
+              className="flex min-h-12 items-center gap-2 rounded-full bg-[#00A884] hover:bg-[#008f70] px-8 py-3.5 text-sm sm:text-base font-bold text-white shadow-lg shadow-[#00A884]/25 transition hover:scale-[1.03] active:scale-[0.98]"
             >
-              {isAuthenticated ? 'Go to Dashboard' : 'Book Free 15-Min Demo'}
-              <Sparkles className="h-4 w-4 text-white" />
+              <span>Book a Demo</span>
+              <ArrowRight className="h-4 w-4" />
             </Link>
             <Link
               href="#features"
-              className="flex min-h-12 items-center gap-2 rounded-full border border-slate-300 bg-white px-8 py-3.5 text-base font-bold text-[#110E3D] shadow-sm transition hover:scale-[1.02] hover:border-slate-400 hover:bg-slate-50"
+              className="flex min-h-12 items-center gap-2 rounded-full border border-slate-300 bg-white hover:bg-slate-50 px-8 py-3.5 text-sm sm:text-base font-bold text-slate-800 shadow-sm transition hover:scale-[1.02]"
             >
-              <span className="flex h-6 w-6 items-center justify-center rounded-full border border-slate-300 text-[10px]">
-                ▶
-              </span>
-              See Live Demo
+              <span>Explore Features</span>
+              <ArrowRight className="h-4 w-4 text-slate-500" />
             </Link>
           </div>
 
-          <div className="mb-10 flex flex-wrap justify-center gap-x-6 gap-y-2 text-xs font-bold text-[#55527C]">
-            <span className="flex items-center gap-1.5 text-emerald-800">
-              <MessageCircle className="h-3.5 w-3.5 text-[#25D366]" /> Setup in
-              24 Hours
-            </span>
-            <span className="flex items-center gap-1.5 text-emerald-800">
-              <CalendarCheck className="h-3.5 w-3.5 text-[#25D366]" /> No Credit
-              Card Required
-            </span>
-            <span className="flex items-center gap-1.5 text-emerald-800">
-              <Users className="h-3.5 w-3.5 text-[#25D366]" /> Official WhatsApp
-              API
-            </span>
-          </div>
-
-          <div className="mx-auto grid max-w-4xl gap-3 text-left sm:grid-cols-3">
-            {outcomes.map(({ icon: Icon, label }) => (
-              <div
-                key={label}
-                className="flex items-center gap-3 rounded-2xl border border-white/90 bg-white/80 p-4 text-sm font-bold text-slate-800 shadow-[0_8px_30px_rgba(17,14,61,0.06)] backdrop-blur-sm"
-              >
-                <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-emerald-100/70 text-[#075E54]">
-                  <Icon className="h-4.5 w-4.5" />
-                </div>
-                <span>{label}</span>
+          {/* 5. FEATURE HIGHLIGHTS ROW (4-COL GRID) */}
+          <div className="mx-auto mb-14 grid max-w-4xl grid-cols-2 gap-4 text-left md:grid-cols-4 sm:gap-6">
+            
+            {/* Item 1 */}
+            <div className="flex items-center gap-3 rounded-2xl border border-slate-200/80 bg-white/90 p-4 shadow-sm backdrop-blur-sm">
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-emerald-50 text-[#00A884]">
+                <MessageSquare className="h-5 w-5" />
               </div>
-            ))}
+              <div>
+                <div className="text-xs sm:text-sm font-extrabold text-slate-900 leading-tight">24/7 AI</div>
+                <div className="text-xs text-slate-500 font-medium">Availability</div>
+              </div>
+            </div>
+
+            {/* Item 2 */}
+            <div className="flex items-center gap-3 rounded-2xl border border-slate-200/80 bg-white/90 p-4 shadow-sm backdrop-blur-sm">
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-emerald-50 text-[#00A884]">
+                <Zap className="h-5 w-5" />
+              </div>
+              <div>
+                <div className="text-xs sm:text-sm font-extrabold text-slate-900 leading-tight">Instant Lead</div>
+                <div className="text-xs text-slate-500 font-medium">Response</div>
+              </div>
+            </div>
+
+            {/* Item 3 */}
+            <div className="flex items-center gap-3 rounded-2xl border border-slate-200/80 bg-white/90 p-4 shadow-sm backdrop-blur-sm">
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-emerald-50 text-[#00A884]">
+                <Calendar className="h-5 w-5" />
+              </div>
+              <div>
+                <div className="text-xs sm:text-sm font-extrabold text-slate-900 leading-tight">Auto Booking &</div>
+                <div className="text-xs text-slate-500 font-medium">Reminders</div>
+              </div>
+            </div>
+
+            {/* Item 4 */}
+            <div className="flex items-center gap-3 rounded-2xl border border-slate-200/80 bg-white/90 p-4 shadow-sm backdrop-blur-sm">
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-emerald-50 text-[#00A884]">
+                <Users className="h-5 w-5" />
+              </div>
+              <div>
+                <div className="text-xs sm:text-sm font-extrabold text-slate-900 leading-tight">Smart CRM &</div>
+                <div className="text-xs text-slate-500 font-medium">Follow-ups</div>
+              </div>
+            </div>
+
           </div>
         </div>
 
-        <div className="mt-14">
-          <div className="mb-5 flex items-center justify-center gap-2 overflow-x-auto border-b border-slate-200/80 pb-2">
-            {tabs.map(({ icon: Icon, label }, index) => (
-              <button
-                key={label}
-                type="button"
-                className={`flex items-center gap-2 border-b-2 px-4 py-3 text-sm font-bold whitespace-nowrap sm:text-base ${index === 0 ? 'border-[#110E3D] text-[#110E3D]' : 'border-transparent text-slate-500'}`}
-              >
-                <Icon className="h-4 w-4" />
-                {label}
-              </button>
-            ))}
-          </div>
+        {/* 6. PRODUCT DASHBOARD SHOWCASE MOCKUP CONTAINER */}
+        <div className="mx-auto max-w-6xl rounded-3xl border border-slate-200/90 bg-white shadow-2xl overflow-hidden text-left">
+          <div className="grid grid-cols-1 lg:grid-cols-[220px_290px_1fr] min-h-[520px]">
 
-          <div className="mx-auto overflow-hidden rounded-3xl border border-indigo-100/70 bg-[#EBE9FC] p-3 shadow-[0_20px_60px_rgba(54,46,120,0.14)] sm:p-6">
-            <div className="mb-4 flex items-center justify-between border-b border-indigo-200/50 px-2 pb-4">
-              <div className="flex items-center gap-2">
-                <div className="h-3 w-3 rounded-full bg-rose-400" />
-                <div className="h-3 w-3 rounded-full bg-amber-400" />
-                <div className="h-3 w-3 rounded-full bg-emerald-400" />
-                <span className="ml-2 font-mono text-xs text-slate-500">
-                  helpa.app/workspace/inbox
-                </span>
+            {/* LEFT COLUMN: BRAND & SIDEBAR NAVIGATION */}
+            <div className="border-b border-slate-100 bg-[#FAFCFB] p-4 lg:border-b-0 lg:border-r flex flex-col justify-between">
+              <div>
+                {/* App Brand Logo */}
+                <div className="mb-6 flex items-center gap-2.5 px-2">
+                  <div className="flex h-8 w-8 items-center justify-center rounded-full bg-[#00A884] text-white">
+                    <Bot className="h-5 w-5" />
+                  </div>
+                  <div className="font-extrabold text-slate-900 text-sm tracking-tight">
+                    WhatsApp <span className="text-[#00A884]">AI</span>
+                  </div>
+                </div>
+
+                {/* Sidebar Links */}
+                <nav className="space-y-1 text-xs font-semibold">
+                  <button className="flex w-full items-center gap-2.5 rounded-xl bg-[#E8F8EE] px-3 py-2.5 text-[#00A884] font-bold">
+                    <MessageSquare className="h-4 w-4" />
+                    <span>Conversations</span>
+                  </button>
+                  <button className="flex w-full items-center gap-2.5 rounded-xl px-3 py-2.5 text-slate-600 hover:bg-slate-100/70 transition">
+                    <User className="h-4 w-4 text-slate-400" />
+                    <span>Leads</span>
+                  </button>
+                  <button className="flex w-full items-center gap-2.5 rounded-xl px-3 py-2.5 text-slate-600 hover:bg-slate-100/70 transition">
+                    <Calendar className="h-4 w-4 text-slate-400" />
+                    <span>Appointments</span>
+                  </button>
+                  <button className="flex w-full items-center gap-2.5 rounded-xl px-3 py-2.5 text-slate-600 hover:bg-slate-100/70 transition">
+                    <Users className="h-4 w-4 text-slate-400" />
+                    <span>Contacts</span>
+                  </button>
+                  <button className="flex w-full items-center gap-2.5 rounded-xl px-3 py-2.5 text-slate-600 hover:bg-slate-100/70 transition">
+                    <Zap className="h-4 w-4 text-slate-400" />
+                    <span>Automation</span>
+                  </button>
+                  <button className="flex w-full items-center gap-2.5 rounded-xl px-3 py-2.5 text-slate-600 hover:bg-slate-100/70 transition">
+                    <BarChart2 className="h-4 w-4 text-slate-400" />
+                    <span>Reports</span>
+                  </button>
+                  <button className="flex w-full items-center gap-2.5 rounded-xl px-3 py-2.5 text-slate-600 hover:bg-slate-100/70 transition">
+                    <Settings className="h-4 w-4 text-slate-400" />
+                    <span>Settings</span>
+                  </button>
+                </nav>
               </div>
-              <span className="inline-flex items-center rounded-full bg-[#25D366]/20 px-3 py-1 text-[11px] font-bold text-[#075E54]">
-                ● Live WhatsApp Connected
-              </span>
+
+              {/* User Profile Footer */}
+              <div className="pt-4 border-t border-slate-100 flex items-center justify-between px-1">
+                <div className="flex items-center gap-2.5">
+                  <img
+                    src="https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100&auto=format&fit=crop&q=80"
+                    alt="Admin"
+                    className="h-8 w-8 rounded-full object-cover border border-slate-200"
+                  />
+                  <div>
+                    <div className="text-xs font-bold text-slate-900 leading-tight">Sushanta Digital</div>
+                    <div className="text-[10px] text-slate-400 font-medium">Admin</div>
+                  </div>
+                </div>
+                <ChevronDown className="h-4 w-4 text-slate-400" />
+              </div>
             </div>
 
-            <div className="grid min-h-[420px] grid-cols-1 overflow-hidden rounded-2xl border border-slate-100 bg-white shadow-sm lg:grid-cols-[240px_1fr_240px]">
-              <div className="border-b border-slate-100 p-4 lg:border-r lg:border-b-0">
-                <div className="mb-4 flex items-center justify-between">
-                  <span className="text-xs font-bold text-[#110E3D]">
-                    All Conversations (48)
-                  </span>
-                  <span className="rounded bg-emerald-50 px-1.5 py-0.5 text-[10px] font-semibold text-emerald-600">
-                    Real-time
-                  </span>
-                </div>
-                <div className="space-y-2">
-                  <div className="rounded-xl border border-indigo-100 bg-slate-50 p-3">
-                    <div className="flex items-center justify-between">
-                      <span className="text-xs font-bold text-[#110E3D]">
-                        Rahul Sharma
-                      </span>
-                      <span className="text-[10px] text-slate-400">
-                        10:15 AM
-                      </span>
-                    </div>
-                    <p className="mt-1 truncate text-[11px] text-slate-600">
-                      🎉 Confirmed! Appointment Token #A-018
-                    </p>
-                    <div className="mt-2 flex gap-1">
-                      <span className="rounded-full bg-blue-100 px-1.5 py-0.5 text-[9px] font-semibold text-blue-700">
-                        Health
-                      </span>
-                      <span className="rounded-full bg-emerald-100 px-1.5 py-0.5 text-[9px] font-semibold text-emerald-700">
-                        AI Booked
-                      </span>
-                    </div>
-                  </div>
-                  <div className="rounded-xl p-3">
-                    <div className="flex items-center justify-between">
-                      <span className="text-xs font-bold text-slate-700">
-                        Sneha Mukherjee
-                      </span>
-                      <span className="text-[10px] text-slate-400">
-                        09:40 AM
-                      </span>
-                    </div>
-                    <p className="mt-1 truncate text-[11px] text-slate-500">
-                      Can I reschedule my haircut to 2:00 PM?
-                    </p>
-                  </div>
-                  <div className="rounded-xl p-3">
-                    <div className="flex items-center justify-between">
-                      <span className="text-xs font-bold text-slate-700">
-                        Ananya Sen
-                      </span>
-                      <span className="text-[10px] text-slate-400">
-                        Yesterday
-                      </span>
-                    </div>
-                    <p className="mt-1 truncate text-[11px] text-slate-500">
-                      Enquiry about NEET Foundation Batch
-                    </p>
-                  </div>
-                </div>
+            {/* MIDDLE COLUMN: CONVERSATIONS LIST */}
+            <div className="border-b border-slate-100 p-4 lg:border-b-0 lg:border-r">
+              <div className="mb-3 flex items-center justify-between">
+                <h3 className="text-xs font-extrabold text-slate-900">Conversations</h3>
+                <Sliders className="h-3.5 w-3.5 text-slate-400 cursor-pointer" />
               </div>
 
-              <div className="flex min-h-[420px] flex-col px-4 py-4 sm:px-6">
+              {/* Filter Tabs */}
+              <div className="mb-4 flex items-center gap-2 text-[11px] font-semibold border-b border-slate-100 pb-2">
+                <button
+                  onClick={() => setActiveTab('all')}
+                  className={`flex items-center gap-1 rounded-md px-2 py-1 ${activeTab === 'all' ? 'bg-[#E8F8EE] text-[#00A884] font-bold' : 'text-slate-500'}`}
+                >
+                  All <span className={`rounded-full px-1.5 py-0.2 text-[9px] ${activeTab === 'all' ? 'bg-[#00A884] text-white' : 'bg-slate-200 text-slate-600'}`}>12</span>
+                </button>
+                <button
+                  onClick={() => setActiveTab('open')}
+                  className={`rounded-md px-2 py-1 ${activeTab === 'open' ? 'bg-[#E8F8EE] text-[#00A884] font-bold' : 'text-slate-500'}`}
+                >
+                  Open <span className="text-slate-400">8</span>
+                </button>
+                <button
+                  onClick={() => setActiveTab('pending')}
+                  className={`rounded-md px-2 py-1 ${activeTab === 'pending' ? 'bg-[#E8F8EE] text-[#00A884] font-bold' : 'text-slate-500'}`}
+                >
+                  Pending <span className="text-slate-400">2</span>
+                </button>
+                <button
+                  onClick={() => setActiveTab('closed')}
+                  className={`rounded-md px-2 py-1 ${activeTab === 'closed' ? 'bg-[#E8F8EE] text-[#00A884] font-bold' : 'text-slate-500'}`}
+                >
+                  Closed <span className="text-slate-400">2</span>
+                </button>
+              </div>
+
+              {/* Conversation Items List */}
+              <div className="space-y-1">
+                {conversations.map((item, idx) => (
+                  <div
+                    key={item.id}
+                    onClick={() => setActiveConversation(idx)}
+                    className={`flex items-start gap-3 rounded-xl p-2.5 cursor-pointer transition ${
+                      activeConversation === idx
+                        ? 'bg-[#E8F8EE]/80 border border-[#00A884]/20'
+                        : 'hover:bg-slate-50'
+                    }`}
+                  >
+                    <img
+                      src={item.avatar}
+                      alt={item.name}
+                      className="h-9 w-9 rounded-full object-cover shrink-0"
+                    />
+                    <div className="flex-1 overflow-hidden">
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs font-bold text-slate-900 truncate">{item.name}</span>
+                        <span className="text-[10px] text-slate-400 whitespace-nowrap">{item.time}</span>
+                      </div>
+                      <p className="text-[11px] text-slate-500 truncate mt-0.5">{item.lastMsg}</p>
+                    </div>
+                    {item.unread > 0 && (
+                      <span className="flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-[#00A884] text-[9px] font-bold text-white mt-1">
+                        {item.unread}
+                      </span>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* RIGHT COLUMN: LIVE CHAT VIEW & CONTACT DETAILS */}
+            <div className="flex flex-col justify-between bg-white p-4">
+              <div>
+                {/* Chat Top Bar */}
                 <div className="flex items-center justify-between border-b border-slate-100 pb-3">
                   <div className="flex items-center gap-3">
-                    <div className="flex h-9 w-9 items-center justify-center rounded-full bg-[#110E3D] text-xs font-bold text-white">
-                      RS
-                    </div>
+                    <img
+                      src={activeContact.avatar}
+                      alt={activeContact.name}
+                      className="h-9 w-9 rounded-full object-cover"
+                    />
                     <div>
-                      <div className="text-xs font-bold text-[#110E3D]">
-                        Rahul Sharma
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs font-bold text-slate-900">{activeContact.name}</span>
+                        <span className="rounded-full bg-emerald-100 px-2 py-0.2 text-[9px] font-bold text-[#00A884]">
+                          {activeContact.role}
+                        </span>
                       </div>
-                      <div className="text-[10px] text-slate-400">
-                        +91 98765 43210 • Lead #LP-00001
-                      </div>
+                      <div className="text-[10px] text-slate-400 font-medium">{activeContact.phone}</div>
                     </div>
                   </div>
-                  <span className="rounded-lg bg-emerald-50 px-2.5 py-1 text-[11px] font-semibold text-emerald-700">
-                    AI Active
+
+                  <div className="flex items-center gap-2">
+                    <button className="rounded-lg border border-slate-200 px-2.5 py-1 text-[11px] font-semibold text-slate-700 hover:bg-slate-50">
+                      View Contact
+                    </button>
+                    <MoreVertical className="h-4 w-4 text-slate-400 cursor-pointer" />
+                  </div>
+                </div>
+
+                {/* Date Separator */}
+                <div className="my-4 text-center">
+                  <span className="rounded-md bg-slate-100 px-3 py-1 text-[10px] font-medium text-slate-400">
+                    Today
                   </span>
                 </div>
-                <div className="flex flex-1 flex-col justify-end gap-3 py-4">
-                  <div className="max-w-[78%] rounded-2xl rounded-tl-sm bg-slate-100 px-4 py-3 text-xs leading-relaxed text-slate-800">
-                    Hi, I would like to book an appointment with Dr. Debasish
-                    Roy for tomorrow morning.
-                    <div className="mt-1 text-right text-[9px] text-slate-400">
-                      10:14 AM
+
+                {/* Chat Messages */}
+                <div className="space-y-3.5">
+                  {activeContact.messages.map((msg, index) => (
+                    <div
+                      key={index}
+                      className={`flex flex-col ${msg.sender === 'user' ? 'items-start' : 'items-end'}`}
+                    >
+                      <div
+                        className={`max-w-[85%] rounded-2xl px-3.5 py-2.5 text-xs leading-relaxed ${
+                          msg.sender === 'user'
+                            ? 'bg-slate-100 text-slate-800 rounded-tl-sm'
+                            : 'bg-[#E7FCE9] text-slate-900 rounded-tr-sm border border-[#00A884]/15'
+                        }`}
+                      >
+                        <p className="whitespace-pre-line">{msg.text}</p>
+                        <div
+                          className={`mt-1 flex items-center gap-1 text-[9px] text-slate-400 ${
+                            msg.sender === 'user' ? 'justify-start' : 'justify-end'
+                          }`}
+                        >
+                          <span>{msg.time}</span>
+                          {msg.sender === 'bot' && <CheckCheck className="h-3 w-3 text-[#00A884]" />}
+                        </div>
+                      </div>
                     </div>
-                  </div>
-                  <div className="ml-auto max-w-[82%] rounded-2xl rounded-tr-sm bg-[#DCF8C6] px-4 py-3 text-xs leading-relaxed text-slate-900 shadow-sm">
-                    Hello Rahul! 👋 Dr. Debasish Roy is available tomorrow at
-                    10:30 AM or 11:30 AM. Which time works best for you?
-                    <div className="mt-1 text-right text-[9px] text-slate-400">
-                      10:14 AM ✓✓
-                    </div>
-                  </div>
-                  <div className="max-w-[30%] rounded-2xl rounded-tl-sm bg-slate-100 px-4 py-3 text-xs text-slate-800">
-                    10:30 AM works for me.
-                    <div className="mt-1 text-right text-[9px] text-slate-400">
-                      10:15 AM
-                    </div>
-                  </div>
-                  <div className="ml-auto max-w-[78%] rounded-2xl rounded-tr-sm bg-[#DCF8C6] px-4 py-3 text-xs leading-relaxed text-slate-900 shadow-sm">
-                    ✅ Confirmed! Appointment booked for tomorrow at 10:30 AM.
-                    Here is your OPD slip.
-                    <div className="mt-1 text-right text-[9px] text-slate-400">
-                      10:15 AM ✓✓
-                    </div>
-                  </div>
-                </div>
-                <div className="flex items-center gap-2 border-t border-slate-100 pt-3">
-                  <div className="flex-1 rounded-xl border border-slate-200 bg-slate-50 px-3.5 py-2.5 text-xs text-slate-400">
-                    Type a message to test AI receptionist...
-                  </div>
-                  <div className="rounded-xl bg-[#110E3D] p-2.5 text-white">
-                    ➤
-                  </div>
+                  ))}
                 </div>
               </div>
 
-              <div className="border-t border-slate-100 p-4 lg:border-t-0 lg:border-l">
-                <div className="text-xs font-bold text-[#110E3D]">
-                  Contact Profile
-                </div>
-                <div className="mt-3 space-y-2 text-xs">
-                  <div className="flex items-center justify-between">
-                    <span className="text-slate-400">Industry</span>
-                    <span className="font-semibold text-rose-600">
-                      Health & Clinic
-                    </span>
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <span className="text-slate-400">Doctor</span>
-                    <span className="font-semibold">Dr. Debasish Roy</span>
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <span className="text-slate-400">Slot</span>
-                    <span className="font-semibold">Tomorrow, 10:30 AM</span>
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <span className="text-slate-400">Queue Token</span>
-                    <span className="font-bold text-emerald-600">#A-018</span>
-                  </div>
-                </div>
-                <div className="mt-5 border-t border-slate-100 pt-4">
-                  <div className="text-xs font-bold text-[#110E3D]">
-                    Automated Actions
-                  </div>
-                  <div className="mt-3 space-y-2">
-                    <div className="rounded-lg bg-emerald-50 p-2 text-[11px] font-semibold text-emerald-700">
-                      ✓ OPD Confirmation PDF Sent
-                    </div>
-                    <div className="rounded-lg bg-blue-50 p-2 text-[11px] font-semibold text-blue-700">
-                      ◷ 24h Reminder Scheduled
-                    </div>
-                    <div className="rounded-lg bg-indigo-50 p-2 text-[11px] font-semibold text-indigo-700">
-                      ▣ Patient Timeline Updated
-                    </div>
-                  </div>
-                </div>
+              {/* Chat Bottom Input Bar */}
+              <div className="mt-4 pt-3 border-t border-slate-100 flex items-center gap-2">
+                <Smile className="h-5 w-5 text-slate-400 cursor-pointer hover:text-slate-600" />
+                <input
+                  type="text"
+                  placeholder="Type a message..."
+                  className="flex-1 rounded-full bg-slate-100/80 px-4 py-2 text-xs text-slate-700 placeholder-slate-400 focus:outline-none focus:ring-1 focus:ring-[#00A884]"
+                  readOnly
+                />
+                <Paperclip className="h-4 w-4 text-slate-400 cursor-pointer hover:text-slate-600" />
+                <button className="flex h-8 w-8 items-center justify-center rounded-full bg-[#00A884] text-white shadow-sm hover:bg-[#008f70]">
+                  <Send className="h-3.5 w-3.5" />
+                </button>
               </div>
+
             </div>
+
           </div>
         </div>
+
       </div>
     </section>
   );
