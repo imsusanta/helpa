@@ -153,6 +153,61 @@ describe('WhatsApp information evidence', () => {
     expect(decision.resolvedFacts[0]?.value).toContain('1,500');
   });
 
+  it('answers Platinum card price from the workspace knowledge base, not a DB table', () => {
+    const decision = decideWhatsAppInformation({
+      message: 'Platinum card কত?',
+      industry: 'coaching',
+      coachingCourses: [],
+      knowledgeItems: [
+        {
+          id: 'kb-1',
+          category: 'pricing',
+          question_title: 'Platinum package fee',
+          answer_content: 'Platinum package is ₹1,500.',
+        },
+      ],
+    });
+    expect(decision.outcome).toBe('direct_answer');
+    expect(decision.answerSource).toBe('knowledge_base');
+    expect(decision.handoffRequired).toBe(false);
+    expect(decision.fallbackMessage).toBeUndefined();
+    expect(
+      decision.resolvedFacts.some((fact) => /1,?500/.test(fact.value))
+    ).toBe(true);
+  });
+
+  it('does not treat an empty course table as the catalog when the price is in the knowledge base', () => {
+    const decision = decideWhatsAppInformation({
+      message: 'Platinum card koto?',
+      industry: 'coaching',
+      coachingCourses: [
+        { name: 'NEET Crash', fee: 12000 },
+        { name: 'JEE Main', fee: 9000 },
+      ],
+      knowledgeItems: [
+        {
+          category: 'pricing',
+          question_title: 'Platinum package fee',
+          answer_content: 'Platinum package is ₹1,500.',
+        },
+      ],
+    });
+    expect(decision.outcome).toBe('direct_answer');
+    expect(decision.answerSource).toBe('knowledge_base');
+    expect(decision.clarificationPrompt).toBeUndefined();
+  });
+
+  it('treats a knowledge-base outage as system error when no operational DB catalog applies', () => {
+    const decision = decideWhatsAppInformation({
+      message: 'Platinum card koto?',
+      industry: 'coaching',
+      coachingCourses: [],
+      knowledgeRetrievalFailed: true,
+    });
+    expect(decision.outcome).toBe('system_error');
+    expect(decision.fallbackMessage).toMatch(/verify|confirm/i);
+  });
+
   it('treats a hospital roster outage as system error, not missing data', () => {
     const decision = decideWhatsAppInformation({
       message: 'Dr. Rao fee koto?',

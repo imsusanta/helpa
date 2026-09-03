@@ -130,6 +130,18 @@ const PRICE_FIELD_RE = [
   /খরচ|দাম|ফি|টাকা|কত/,
 ];
 
+const PRICE_IN_TEXT_RE =
+  /(?:₹|rs\.?|inr|taka)\s*[\d,]+|\b\d{1,3}(?:,\d{3})+(?:\.\d+)?\b|\b\d{4,7}\b/i;
+
+function queryMentions(query: string, entity: string): boolean {
+  const q = (query || '').toLowerCase();
+  const name = (entity || '')
+    .toLowerCase()
+    .replace(/^dr\.?\s+/i, '')
+    .trim();
+  return name.length > 2 && q.includes(name);
+}
+
 const PACKAGE_ENTITY_RE = [
   /\b(package|packages|tour|trip|itinerary|card|plan|hotel)\b/i,
   /প্যাকেজ/,
@@ -481,13 +493,29 @@ export function decideInformationResponse(input: {
       evidence.retrievalErrorSource === 'search' ||
       !evidence.retrievalErrorSource) &&
     failedSources.length === 0;
+  const askedPrice = hasAny(message, PRICE_FIELD_RE);
+  const factsAnswerAsk =
+    resolvedFacts.length > 0 &&
+    (!askedPrice ||
+      resolvedFacts.some(
+        (fact) =>
+          fact.field === 'price' ||
+          fact.field === 'fee' ||
+          PRICE_IN_TEXT_RE.test(fact.value)
+      ));
+  const namedResolvedFact = resolvedFacts.some(
+    (fact) => fact.entity && queryMentions(message, fact.entity)
+  );
+  // A source outage is only a system error when no authorized source
+  // (including the tenant knowledge base) already answered the question.
   const treatAsSystemError =
-    failedSources.includes('database') ||
-    databaseLookupFailed ||
-    (failedSources.includes('knowledge_base') &&
-      evidence.databaseFacts === undefined &&
-      !evidence.similarSuggestions?.length &&
-      questionType !== 'general');
+    !factsAnswerAsk &&
+    (failedSources.includes('database') ||
+      databaseLookupFailed ||
+      (failedSources.includes('knowledge_base') &&
+        evidence.databaseFacts === undefined &&
+        !evidence.similarSuggestions?.length &&
+        questionType !== 'general'));
 
   if (treatAsSystemError) {
     return {
@@ -513,7 +541,7 @@ export function decideInformationResponse(input: {
     };
   }
 
-  if (resolvedFacts.length > 0 && !evidence.missingRequestedField) {
+  if (factsAnswerAsk) {
     if (isAmbiguousBusinessAsk(message) && !evidence.multipleMatches) {
       return {
         ...base,
@@ -526,7 +554,7 @@ export function decideInformationResponse(input: {
       };
     }
 
-    if (evidence.multipleMatches) {
+    if (evidence.multipleMatches && !namedResolvedFact) {
       return {
         ...base,
         outcome: 'clarification',
@@ -625,9 +653,6 @@ export function toAnswerMetadata(decision: InformationDecision): AnswerMetadata 
   };
 }
 
-const PRICE_IN_TEXT_RE =
-  /(?:₹|rs\.?|inr|taka)\s*[\d,]+|\b\d{1,3}(?:,\d{3})+(?:\.\d+)?\b|\b\d{4,7}\b/i;
-
 export function replyContainsUnverifiedPrice(
   reply: string,
   facts: RetrievedFact[]
@@ -710,15 +735,16 @@ export function buildInformationPolicyPrompt(
 
   return `${INFORMATION_POLICY_MARKER}
 SOURCE OF TRUTH (authorized only):
-1. Real-time database
-2. Knowledge base
-3. Conversation context (already confirmed customer details only)
+1. Tenant knowledge base — the SaaS workspace catalog the owner maintains (prices, cards, plans, packages, fees, policies)
+2. Real-time database — live operational records only (travel inventory, doctor roster, appointments)
+3. Conversation context (already confirmed staff details only)
 4. Business configuration
 5. General AI knowledge — ONLY for non-business / general questions
 
 RULES:
 - Business facts (${entities}) MUST come from authorized sources. Never use general AI knowledge for this workplace's prices, packages, fees, schedules, availability, or records.
-- Knowing something generally does NOT mean this business offers it. Never say "our hotel starts from ₹2,000" unless that rate is in the database.
+- Most workspace prices, cards, and plans live in the knowledge base. If the fact is there, answer it directly. Do not require the same fact to also exist in a database table.
+- Knowing something generally does NOT mean this business offers it. Never say "our hotel starts from ₹2,000" unless that rate is in the knowledge base or database.
 - If an exact verified fact is present, answer it directly. Do not add an unnecessary disclaimer.
 - If the request is ambiguous (price vs full details) and data exists, ask one clarification question first.
 - If no matching business data exists after exact, synonym, and context search: never guess. Say it is not verified, then offer a useful next step (team confirmation / handoff).

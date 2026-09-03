@@ -137,16 +137,16 @@ describe('decideInformationResponse', () => {
     expect(decision.fallbackMessage).not.toMatch(/\d{3,}/);
   });
 
-  it('P0: answers an exact verified fact directly without a disclaimer', () => {
+  it('P0: answers an exact knowledge-base fact directly without a disclaimer', () => {
     const decision = decideInformationResponse({
       message: 'Platinum card কত?',
       industry: 'coaching',
       evidence: {
-        databaseFacts: [
+        knowledgeBaseFacts: [
           {
             key: 'platinum.price',
             value: '₹1,500',
-            source: 'database',
+            source: 'knowledge_base',
             entity: 'Platinum',
             field: 'price',
           },
@@ -154,7 +154,7 @@ describe('decideInformationResponse', () => {
       },
     });
     expect(decision.outcome).toBe('direct_answer');
-    expect(decision.answerSource).toBe('database');
+    expect(decision.answerSource).toBe('knowledge_base');
     expect(decision.answerConfidence).toBe('high');
     expect(decision.handoffRequired).toBe(false);
     expect(decision.fallbackMessage).toBeUndefined();
@@ -308,7 +308,7 @@ describe('applyInformationGuard', () => {
       {
         key: 'platinum.price',
         value: '₹1,500',
-        source: 'database',
+        source: 'knowledge_base',
         entity: 'Platinum',
         field: 'price',
       },
@@ -316,7 +316,7 @@ describe('applyInformationGuard', () => {
     const decision = decideInformationResponse({
       message: 'Platinum card কত?',
       industry: 'coaching',
-      evidence: { databaseFacts: facts },
+      evidence: { knowledgeBaseFacts: facts },
     });
     expect(
       applyInformationGuard('Platinum card ₹1,500।', decision)
@@ -332,7 +332,7 @@ describe('applyInformationGuard', () => {
         {
           key: 'platinum.price',
           value: '₹1,500',
-          source: 'database',
+          source: 'knowledge_base',
           field: 'price',
         },
       ])
@@ -360,11 +360,11 @@ describe('prompt + metadata', () => {
       message: 'Platinum card কত?',
       industry: 'coaching',
       evidence: {
-        databaseFacts: [
+        knowledgeBaseFacts: [
           {
             key: 'platinum.price',
             value: '₹1,500',
-            source: 'database',
+            source: 'knowledge_base',
             entity: 'Platinum',
             field: 'price',
           },
@@ -377,7 +377,7 @@ describe('prompt + metadata', () => {
     expect(block).toContain('No disclaimer');
     const meta = toAnswerMetadata(decision);
     expect(meta).toEqual({
-      answer_source: 'database',
+      answer_source: 'knowledge_base',
       answer_confidence: 'high',
       handoff_required: false,
       question_type: 'business',

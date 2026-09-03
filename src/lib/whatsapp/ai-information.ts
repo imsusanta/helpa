@@ -318,7 +318,11 @@ export function evidenceFromCoachingCourses(
       askedFee &&
       pool.length > 0 &&
       pool.every((course) => parsePositiveFee(course.fee) == null),
-    multipleMatches: askedFee && mentioned.length === 0 && courses.length > 1,
+    multipleMatches:
+      askedFee &&
+      mentioned.length === 0 &&
+      courses.length > 1 &&
+      /\b(course|batch|class|admission)\b/i.test(query),
   };
 }
 
@@ -413,10 +417,19 @@ export function decideWhatsAppInformation(input: {
     ...hospitalFacts,
     ...coachingFacts,
   ];
+  const coachingCatalogRelevant =
+    coachingFacts.length > 0 ||
+    (coachingLookupSucceeded &&
+      /\b(course|batch|class|admission)\b/i.test(input.message));
+  const hospitalCatalogRelevant =
+    hospitalFacts.length > 0 ||
+    (hospitalLookupSucceeded &&
+      (/\b(doctor|dr|fee|timing|department)\b/i.test(input.message) ||
+        /ফি|ডাক্তার/.test(input.message)));
   const hasStructuredDb =
     travelLookupSucceeded ||
-    hospitalLookupSucceeded ||
-    coachingLookupSucceeded ||
+    hospitalCatalogRelevant ||
+    coachingCatalogRelevant ||
     databaseFacts.length > 0;
   const industryDbFailed =
     travelEvidence.retrievalFailed === true ||
