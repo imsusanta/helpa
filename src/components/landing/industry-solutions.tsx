@@ -1,95 +1,71 @@
 import Link from 'next/link';
-import {
-  ArrowRight,
-  CalendarCheck,
-  CheckCircle2,
-  FileCheck2,
-  MessageCircle,
-} from 'lucide-react';
+import { ArrowRight, CalendarCheck, CheckCircle2, MessageCircle, UsersRound, BarChart3 } from 'lucide-react';
 
-const WORKFLOW = [
+const FEATURES = [
   {
     icon: MessageCircle,
-    title: 'Customers message on WhatsApp',
-    description:
-      'Helpa answers common questions instantly using your approved business information.',
+    title: 'Automate Conversations',
+    description: 'Answer common questions, capture enquiries, and keep every WhatsApp conversation moving.',
   },
   {
     icon: CalendarCheck,
-    title: 'Helpa handles the next step',
-    description:
-      'Availability, service details, bookings, or enquiries are handled without back-and-forth.',
+    title: 'Book Appointments',
+    description: 'Let customers check availability and book, reschedule, or cancel without back-and-forth.',
   },
   {
-    icon: CheckCircle2,
-    title: 'Leads are captured and qualified',
-    description:
-      'Important customer details and intent are organized automatically for your team.',
+    icon: UsersRound,
+    title: 'Manage Customers',
+    description: 'Keep contacts, conversation history, follow-ups, and customer details together in one place.',
   },
   {
-    icon: FileCheck2,
-    title: 'Follow-up stays organized',
-    description:
-      'Tasks, reminders, conversations, and customer history stay connected in one workspace.',
+    icon: BarChart3,
+    title: 'Grow Your Business',
+    description: 'Qualify leads, organize opportunities, and help your team follow up faster.',
   },
 ];
 
 export function LandingIndustrySolutions() {
   return (
-    <section id="clinic-workflow" className="bg-white py-20">
+    <section id="clinic-workflow" className="bg-white py-24">
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-        <div className="mx-auto mb-12 max-w-3xl text-center">
-          <span className="mb-3 inline-flex items-center rounded-full bg-indigo-50 px-3 py-1 text-xs font-bold text-indigo-700">
-            WhatsApp workflow
-          </span>
-          <h2 className="text-3xl font-extrabold tracking-tight text-[#110E3D] sm:text-4xl">
-            From first message to next action
-          </h2>
-          <p className="mt-3 text-base text-slate-600">
-            One connected workflow for teams that use WhatsApp to answer
-            customers, capture leads, automate routine work, and keep follow-ups
-            organized.
-          </p>
-        </div>
-
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-          {WORKFLOW.map(({ icon: Icon, title, description }, index) => (
-            <article
-              key={title}
-              className="rounded-2xl border border-slate-200 bg-slate-50 p-6"
+        <div className="grid items-center gap-10 lg:grid-cols-[0.9fr_2fr]">
+          <div className="max-w-md">
+            <div className="mb-4 flex items-center gap-2 text-xs font-bold uppercase tracking-[0.18em] text-emerald-600">
+              <span className="h-px w-8 bg-emerald-500" />
+              Why businesses love us
+            </div>
+            <h2 className="text-3xl font-extrabold tracking-tight text-[#110E3D] sm:text-4xl lg:text-5xl">
+              Everything you need to grow on <span className="text-emerald-600">WhatsApp</span>
+            </h2>
+            <p className="mt-5 text-base leading-7 text-slate-600 sm:text-lg">
+              From conversations to conversions — automate routine work so your team can focus on customers and growth.
+            </p>
+            <Link
+              href="/signup"
+              className="mt-7 inline-flex items-center gap-2 text-sm font-bold text-[#110E3D] transition hover:text-emerald-600"
             >
-              <div className="mb-5 flex items-center justify-between">
-                <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-white text-indigo-700 shadow-sm">
+              Explore what you can automate
+              <ArrowRight className="h-4 w-4" />
+            </Link>
+          </div>
+
+          <div className="grid gap-4 sm:grid-cols-2">
+            {FEATURES.map(({ icon: Icon, title, description }) => (
+              <article
+                key={title}
+                className="group rounded-3xl border border-slate-200 bg-white p-6 shadow-[0_12px_40px_rgba(17,14,61,0.06)] transition duration-200 hover:-translate-y-1 hover:shadow-[0_18px_48px_rgba(17,14,61,0.09)]"
+              >
+                <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-emerald-50 text-emerald-600">
                   <Icon className="h-5 w-5" />
                 </div>
-                <span className="text-xs font-bold text-slate-400">
-                  0{index + 1}
-                </span>
-              </div>
-              <h3 className="text-base font-bold text-[#110E3D]">{title}</h3>
-              <p className="mt-2 text-sm leading-relaxed text-slate-600">
-                {description}
-              </p>
-            </article>
-          ))}
-        </div>
-
-        <div className="mt-10 rounded-2xl border border-emerald-200 bg-emerald-50 p-6 sm:flex sm:items-center sm:justify-between">
-          <div>
-            <h3 className="font-bold text-emerald-950">
-              Designed for accountable automation
-            </h3>
-            <p className="mt-1 text-sm text-emerald-800">
-              Teams can review conversations, take over when needed, and keep
-              important customer decisions with the right people.
-            </p>
+                <h3 className="mt-7 text-lg font-bold text-[#110E3D]">{title}</h3>
+                <p className="mt-2 text-sm leading-6 text-slate-600">{description}</p>
+                <div className="mt-6 flex h-9 w-9 items-center justify-center rounded-full bg-slate-50 text-slate-500 transition group-hover:bg-emerald-50 group-hover:text-emerald-600">
+                  <ArrowRight className="h-4 w-4" />
+                </div>
+              </article>
+            ))}
           </div>
-          <Link
-            href="/signup"
-            className="mt-4 inline-flex min-h-11 items-center gap-2 rounded-full bg-[#110E3D] px-6 py-3 text-sm font-bold text-white sm:mt-0"
-          >
-            Start your workspace <ArrowRight className="h-4 w-4" />
-          </Link>
         </div>
       </div>
     </section>
