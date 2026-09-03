@@ -159,6 +159,9 @@ function mergeConversation(
       ai_handoff_required: existing.ai_handoff_required,
       ai_resolved: existing.ai_resolved,
       ai_faq_category: existing.ai_faq_category,
+      ai_answer_source: existing.ai_answer_source,
+      ai_answer_confidence: existing.ai_answer_confidence,
+      ai_question_type: existing.ai_question_type,
       updated_at: existing.updated_at,
     };
   }

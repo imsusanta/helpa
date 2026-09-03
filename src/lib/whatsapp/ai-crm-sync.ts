@@ -34,6 +34,9 @@ export async function updateConversationInsights(
     ai_handoff_required: insights.handoffRequired,
     ai_resolved: insights.resolved,
     ai_faq_category: insights.faqCategory,
+    ai_answer_source: insights.answerSource,
+    ai_answer_confidence: insights.answerConfidence,
+    ai_question_type: insights.questionType,
   };
 
   if (insights.handoffRequired) {

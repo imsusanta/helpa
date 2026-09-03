@@ -7,6 +7,7 @@
  */
 
 import { getAdminClient } from '@/lib/db/server';
+import { retrieveKnowledge } from '@/core/knowledge';
 import type { AiToolDefinition, AiExecutionContext } from './types';
 import { registerTourPackageTools } from './tour-package-tools';
 import { resolveIndustryAlias } from '@/core/modules/terminology';
@@ -62,37 +63,27 @@ aiToolRegistry.register({
     },
   },
   execute: async (params, context: AiExecutionContext) => {
-    const db = getAdminClient();
-    const query = String(params.query || '')
-      .trim()
-      .toLowerCase();
-    const { data: kbRows } = await db
-      .from('knowledge_base')
-      .select('question_title, answer_content, category')
-      .eq('account_id', context.accountId);
-
-    if (!kbRows || kbRows.length === 0) {
+    const query = String(params.query || '').trim();
+    const result = await retrieveKnowledge(context.accountId, query, {
+      limit: 8,
+    });
+    if (result.retrievalFailed) {
       return {
-        success: true,
-        data: { results: [], message: 'No knowledge base entries found.' },
+        success: false,
+        error:
+          'Knowledge search is temporarily unavailable. Do not treat this as missing information.',
       };
     }
-
-    const matches = kbRows.filter(
-      (r) =>
-        r.question_title?.toLowerCase().includes(query) ||
-        r.answer_content?.toLowerCase().includes(query) ||
-        r.category?.toLowerCase().includes(query)
-    );
 
     return {
       success: true,
       data: {
-        matches: matches.slice(0, 3).map((m) => ({
+        matches: result.items.slice(0, 3).map((m) => ({
           question: m.question_title,
           answer: m.answer_content,
           category: m.category,
         })),
+        found: result.items.length > 0,
       },
     };
   },

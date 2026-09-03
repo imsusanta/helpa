@@ -88,12 +88,40 @@ export function buildTravelPackagePromptBlock(
     `Detected requirements: destination=${result.requirements.destination || 'n/a'}, budget=${result.requirements.budget ?? 'n/a'}, duration_days=${result.requirements.durationDays ?? 'n/a'}, adults=${result.requirements.adults ?? 'n/a'}, children=${result.requirements.children ?? 'n/a'}, date=${result.requirements.travelDate || result.requirements.travelMonth || 'n/a'}, type=${result.requirements.packageType || 'n/a'}.`,
   ];
 
-  if (result.matches.length === 0 && result.nearMatches.length === 0) {
+  const similar = result.similarMatches || [];
+  if (
+    result.matches.length === 0 &&
+    result.nearMatches.length === 0 &&
+    similar.length === 0
+  ) {
     lines.push(
       'No matching Tour Package was found in this Travel Workplace database.',
       'Tell the customer that no matching package was found or that the information needs confirmation.',
-      'Do not invent a package.'
+      'Do not invent a package. Do not quote another agency. Do not guess a price.',
+      'Preferred wording: "No matching package is currently available for your requirements. You can talk with our team about a custom option."'
     );
+    return `${lines.join('\n')}\n`;
+  }
+
+  if (result.matches.length === 0 && similar.length > 0) {
+    const options = similar
+      .map((row) => {
+        const price = formatMoney(
+          row.matchedPrice,
+          row.matchedCurrency || row.package.currency
+        );
+        return `${row.package.destination}${price ? ` ${price}` : ''}`;
+      })
+      .join(', ');
+    lines.push(
+      `No exact matching package was found for ${result.requirements.destination || 'the requested destination'}.`,
+      `Verified similar options from THIS workplace database: ${options}.`,
+      'You MAY suggest only these real database packages. Do not invent a missing destination package or an approximate price.'
+    );
+    similar.slice(0, 3).forEach((row, index) => {
+      lines.push(`--- Similar option ${index + 1} ---`);
+      lines.push(formatTourPackageFactSheet(row.package));
+    });
     return `${lines.join('\n')}\n`;
   }
 

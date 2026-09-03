@@ -84,6 +84,9 @@ export interface AiExecutionResult {
   }>;
   needsHumanHandoff: boolean;
   handoffReason?: string;
+  answerSource?: string;
+  answerConfidence?: string;
+  questionType?: string;
   timestamp: string;
 }
 

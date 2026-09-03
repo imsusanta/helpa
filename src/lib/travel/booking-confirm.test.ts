@@ -196,6 +196,7 @@ vi.mock('@/lib/travel/retrieval', async (importOriginal) => {
         return {
           matches: [{ package: detail, score: 1, matchedBy: 'name' }],
           nearMatches: [],
+          similarMatches: [],
           retrievalFailed: false,
           requirements: {},
         };
@@ -203,6 +204,7 @@ vi.mock('@/lib/travel/retrieval', async (importOriginal) => {
       return {
         matches: [],
         nearMatches: [],
+        similarMatches: [],
         retrievalFailed: false,
         requirements: {},
       };

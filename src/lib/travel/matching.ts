@@ -12,6 +12,9 @@ const DESTINATION_ALIASES: Record<string, string> = {
   gulmarg: 'kashmir',
   pahalgam: 'kashmir',
   darjeeling: 'darjeeling',
+  dooars: 'dooars',
+  jalpaiguri: 'dooars',
+  lataguri: 'dooars',
   gangtok: 'sikkim',
   sikkim: 'sikkim',
   goa: 'goa',
@@ -370,9 +373,14 @@ export function rankTourPackages(
   packages: TourPackageDetail[],
   requirements: TravelerRequirements,
   today = new Date().toISOString().slice(0, 10)
-): { matches: RankedTourPackage[]; nearMatches: RankedTourPackage[] } {
+): {
+  matches: RankedTourPackage[];
+  nearMatches: RankedTourPackage[];
+  similarMatches: RankedTourPackage[];
+} {
   const wantedDestination = destinationKey(requirements.destination);
   const ranked: RankedTourPackage[] = [];
+  const similar: RankedTourPackage[] = [];
 
   for (const pkg of packages) {
     if (!isPackageCurrentlyActive(pkg, today)) continue;
@@ -382,6 +390,12 @@ export function rankTourPackages(
     const pkgDestination = destinationKey(pkg.destination);
     const resolved = resolvePackagePrice(pkg, requirements);
     const departure = findMatchingDeparture(pkg, requirements);
+    const fitsBudgetConstraint =
+      requirements.budget == null ||
+      (resolved.price != null && resolved.price <= requirements.budget);
+    const durationClose =
+      requirements.durationDays == null ||
+      Math.abs(pkg.duration_days - requirements.durationDays) <= 1;
 
     if (wantedDestination) {
       if (pkgDestination === wantedDestination) {
@@ -394,6 +408,22 @@ export function rankTourPackages(
       ) {
         score += 60;
         reasons.push('Related destination');
+      } else if (
+        (requirements.budget != null || requirements.durationDays != null) &&
+        fitsBudgetConstraint &&
+        durationClose
+      ) {
+        similar.push({
+          package: pkg,
+          score: score + (fitsBudgetConstraint && requirements.budget != null ? 20 : 0),
+          fitsBudget: fitsBudgetConstraint,
+          reasons: ['Similar verified option'],
+          matchedPrice: resolved.price,
+          matchedCurrency: resolved.currency,
+          matchedPricing: resolved.pricing,
+          matchedDeparture: departure,
+        });
+        continue;
       } else {
         continue;
       }
@@ -473,7 +503,14 @@ export function rankTourPackages(
 
   const matches = ranked.filter((row) => row.fitsBudget);
   const nearMatches = ranked.filter((row) => !row.fitsBudget);
-  return { matches, nearMatches };
+  similar.sort(
+    (a, b) => b.score - a.score || (a.matchedPrice ?? 0) - (b.matchedPrice ?? 0)
+  );
+  return {
+    matches,
+    nearMatches,
+    similarMatches: matches.length === 0 ? similar.slice(0, 3) : [],
+  };
 }
 
 export function formatMoney(

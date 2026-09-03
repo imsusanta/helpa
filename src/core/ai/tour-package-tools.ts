@@ -98,6 +98,9 @@ export function registerTourPackageTools(registry: ToolRegistry): void {
             nearMatches: result.nearMatches
               .slice(0, 3)
               .map(publicRankedPackage),
+            similarMatches: (result.similarMatches || [])
+              .slice(0, 3)
+              .map(publicRankedPackage),
             found: result.matches.length > 0,
           },
         };

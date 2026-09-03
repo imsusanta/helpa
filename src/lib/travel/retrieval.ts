@@ -642,6 +642,7 @@ export async function matchTourPackagesForMessage(
     return {
       matches: [],
       nearMatches: [],
+      similarMatches: [],
       retrievalFailed: true,
       requirements,
     };

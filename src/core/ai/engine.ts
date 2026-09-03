@@ -11,6 +11,12 @@ import { type AiMessage } from './provider';
 import { executeAiCompletionWithFallback } from './resolver';
 import { buildAiContextBundle } from './context-builder';
 import { aiToolRegistry } from './tools';
+import {
+  applyInformationGuard,
+  decideInformationResponse,
+  factsFromKnowledgeItems,
+  formatInformationDecisionForPrompt,
+} from './information-policy';
 import type {
   AiExecutionContext,
   AiExecutionResult,
@@ -34,7 +40,10 @@ export async function executeAiPipeline({
   const startTime = Date.now();
 
   // 1. Build Layered Context Bundle
-  const bundle = await buildAiContextBundle(context);
+  const bundle = await buildAiContextBundle({
+    ...context,
+    queryText: userMessage,
+  });
 
   // 2. Safety Pre-screening driven by Industry Manifest (via the Core port)
   const lowerMsg = userMessage.toLowerCase();
@@ -72,6 +81,27 @@ export async function executeAiPipeline({
   // 3. Industry-specific prompt augmentation via the port (no hardcoded
   //    industry branches in Core — e.g. travel package grounding is registered
   //    by the modules layer).
+  const informationDecision = decideInformationResponse({
+    message: userMessage,
+    industry: bundle.industry,
+    evidence: {
+      knowledgeBaseFacts: factsFromKnowledgeItems(
+        bundle.knowledgeSnippets.map((snippet) => {
+          const [title, ...rest] = snippet.replace(/^Q:\s*/, '').split('\nA:');
+          return {
+            question_title: title || snippet,
+            answer_content: rest.join('\nA:') || '',
+            category: '',
+          };
+        }),
+        userMessage
+      ),
+      retrievalFailed: bundle.knowledgeSnippets.some((snippet) =>
+        snippet.includes('KNOWLEDGE RETRIEVAL ERROR')
+      ),
+    },
+  });
+
   let systemPrompt = bundle.systemPrompt;
   if (industryPort.augmentSystemPrompt) {
     systemPrompt = await industryPort.augmentSystemPrompt({
@@ -81,6 +111,7 @@ export async function executeAiPipeline({
       systemPrompt,
     });
   }
+  systemPrompt = `${systemPrompt}\n\n${formatInformationDecisionForPrompt(informationDecision)}`;
 
   const conversationMessages: AiMessage[] = [
     { role: 'system', content: systemPrompt },
@@ -104,10 +135,13 @@ export async function executeAiPipeline({
     },
   });
 
-  let replyText = completion.content.trim();
+  let replyText = applyInformationGuard(
+    completion.content.trim(),
+    informationDecision
+  );
   const toolCallsExecuted: AiExecutionResult['toolCallsExecuted'] = [];
-  let needsHumanHandoff = false;
-  let handoffReason: string | undefined;
+  let needsHumanHandoff = informationDecision.handoffRequired;
+  let handoffReason: string | undefined = informationDecision.handoffReason;
 
   // 5. Detect and Execute Tool Calls if structured in response
   if (replyText.includes('TOOL_CALL:')) {
@@ -181,6 +215,9 @@ export async function executeAiPipeline({
       toolCallsExecuted.length > 0 ? toolCallsExecuted : undefined,
     needsHumanHandoff,
     handoffReason,
+    answerSource: informationDecision.answerSource,
+    answerConfidence: informationDecision.answerConfidence,
+    questionType: informationDecision.questionType,
     timestamp: new Date().toISOString(),
   };
 }

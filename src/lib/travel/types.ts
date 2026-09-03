@@ -243,6 +243,7 @@ export interface RankedTourPackage {
 export interface TourPackageMatchResult {
   matches: RankedTourPackage[];
   nearMatches: RankedTourPackage[];
+  similarMatches: RankedTourPackage[];
   retrievalFailed: boolean;
   requirements: TravelerRequirements;
 }

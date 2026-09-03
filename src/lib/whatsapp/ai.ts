@@ -37,6 +37,13 @@ import { applyDetectionToLead } from '@/lib/leads/inbound-lead-layer';
 import { getAccountChatbotSettings } from '@/core/ai/chatbot-settings';
 import { matchTourPackagesForMessage } from '@/lib/travel/retrieval';
 import { buildTravelPackagePromptBlock } from '@/lib/travel/prompt';
+import type { TourPackageMatchResult } from '@/lib/travel/types';
+import { applyInformationGuard } from '@/core/ai/information-policy';
+import { searchKnowledgeItems } from '@/core/knowledge/search';
+import {
+  decideWhatsAppInformation,
+  informationDecisionPromptBlock,
+} from '@/lib/whatsapp/ai-information';
 
 import {
   executeAiCompletionWithFallback,
@@ -480,7 +487,18 @@ export async function triggerAiResponse(
     question_title: string;
     answer_content: string;
   }> | null;
-  const kbContext = formatKnowledgeBaseContext(kbEntries);
+  const knowledgeRetrievalFailed = Boolean(kbRes.error);
+  const relevantKb = searchKnowledgeItems(kbEntries || [], latestMessage?.content_text || '', {
+    conversationContext: messages
+      .filter((message) => message.sender_type === 'customer')
+      .slice(-4)
+      .map((message) => message.content_text || '')
+      .join('\n'),
+    limit: 8,
+  });
+  const kbContext = formatKnowledgeBaseContext(
+    relevantKb.length > 0 ? relevantKb : kbEntries
+  );
 
   const { hospitalContext, coachingContext, labReports } =
     await buildIndustryAiContext(db, {
@@ -495,20 +513,36 @@ export async function triggerAiResponse(
     });
 
   let travelPackageContext = '';
+  let travelPackageResult: TourPackageMatchResult | null = null;
   if (isTravelEnabled) {
     const recentCustomerText = messages
       .filter((message) => message.sender_type === 'customer')
       .slice(-4)
       .map((message) => message.content_text || '')
       .join('\n');
-    const packageResult = await matchTourPackagesForMessage(
+    travelPackageResult = await matchTourPackagesForMessage(
       db,
       accountId,
       latestMessage?.content_text || '',
       recentCustomerText
     );
-    travelPackageContext = buildTravelPackagePromptBlock(packageResult);
+    travelPackageContext = buildTravelPackagePromptBlock(travelPackageResult);
   }
+
+  const informationDecision = decideWhatsAppInformation({
+    message: latestMessage?.content_text || '',
+    industry: account?.industry,
+    knowledgeItems: relevantKb,
+    knowledgeRetrievalFailed,
+    travelResult: travelPackageResult,
+    hospitalContext,
+    coachingContext,
+    highValue: Boolean(
+      conversation &&
+        (conversation.ai_lead_score === 'hot' ||
+          conversation.aiLeadScore === 'hot')
+    ),
+  });
 
   // 4. Formulate prompt messages
   const systemPromptContent = buildReceptionistSystemPrompt({
@@ -521,6 +555,7 @@ export async function triggerAiResponse(
     hospitalContext,
     coachingContext,
     travelPackageContext,
+    informationPolicyContext: informationDecisionPromptBlock(informationDecision),
     isHospitalEnabled,
     isCoachingEnabled,
     isTravelEnabled,
@@ -619,6 +654,12 @@ export async function triggerAiResponse(
     reply = unwrapNestedReply(reply);
 
     const insights = extractStructuredInsights(parsedResponse.payload);
+    reply = applyInformationGuard(reply, informationDecision);
+    insights.handoffRequired =
+      insights.handoffRequired || informationDecision.handoffRequired;
+    insights.answerSource = informationDecision.answerSource;
+    insights.answerConfidence = informationDecision.answerConfidence;
+    insights.questionType = informationDecision.questionType;
     if (!parsedResponse.payload && parsedResponse.isStructured) {
       console.warn(
         '[AI Assistant] Structured AI response could not be parsed; sending only its recovered reply.'

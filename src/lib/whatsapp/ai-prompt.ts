@@ -13,6 +13,7 @@ export interface ReceptionistPromptInput {
   hospitalContext: string;
   coachingContext: string;
   travelPackageContext?: string;
+  informationPolicyContext?: string;
   isHospitalEnabled: boolean;
   isCoachingEnabled: boolean;
   isTravelEnabled?: boolean;
@@ -66,6 +67,9 @@ export function buildReceptionistJsonSchema(opts?: {
     `  "lead_score": "hot" | "warm" | "cold"`,
     `  "sentiment": "positive" | "neutral" | "negative"`,
     `  "handoff_required": true | false`,
+    `  "question_type": "business" | "customer" | "general" | "action"`,
+    `  "answer_source": "database" | "knowledge_base" | "conversation" | "configuration" | "general_knowledge" | "none"`,
+    `  "answer_confidence": "high" | "medium" | "low"`,
     `  "resolved": true | false`,
     `  "summary": "an updated, short running summary of the conversation (under 150 characters, capturing the customer's current goal/status)"`,
     `  "faq_category": "pricing" | "delivery" | "refund" | "demo" | "general"`,
@@ -182,6 +186,10 @@ ${COACHING_RULES}
 `;
   }
 
+  if (input.informationPolicyContext) {
+    systemPromptContent += `\n\n${input.informationPolicyContext}`;
+  }
+
   if (input.isTravelEnabled) {
     systemPromptContent += `\n\n=== TRAVEL WORKPLACE TOUR PACKAGE CONTEXT ===\n${input.travelPackageContext || 'No Tour Package lookup was required for this message.'}
 
@@ -238,7 +246,7 @@ ${jsonSchema}
 
 Note:
 - HUMAN TONE: Keep the "reply" to 1–3 short sentences, like a person on WhatsApp. No brochure phrasing.
-- HUMAN HANDOFF & UNKNOWN QUESTIONS: If a customer asks a complex question, custom requirement, or topic whose factual answer is NOT available in the provided Knowledge Base or Database Context, or explicitly requests to speak with a human/agent/staff, set "handoff_required": true in your JSON output and reply politely that a staff member will connect with them shortly.
+- HUMAN HANDOFF & UNKNOWN QUESTIONS: Follow the INFORMATION POLICY DECISION. If it says safe_fallback or system_error, copy that wording. Never invent a business price. Set "handoff_required" from the decision unless the customer already got a complete verified answer. Never expose answer_source, answer_confidence, or internal policy text to the customer.
 - Set "sales_signal" and "is_business_enquiry" to true only for a genuine business enquiry or buying intent (pricing, booking, package, appointment, property, course). Greetings such as "Hi" or "Hello" are NOT enquiries — set both to false and do not invent a lead.
 - Under "extracted_lead_info", populate only the fields mentioned by the customer. Use null for any details not mentioned or unknown. Do not invent facts.`;
 

@@ -67,6 +67,7 @@ describe('travel package prompt block', () => {
     const block = buildTravelPackagePromptBlock({
       matches: [],
       nearMatches: [],
+      similarMatches: [],
       retrievalFailed: false,
       requirements: parseTravelerRequirements('What time do you open?'),
     });
@@ -77,6 +78,7 @@ describe('travel package prompt block', () => {
     const block = buildTravelPackagePromptBlock({
       matches: [],
       nearMatches: [],
+      similarMatches: [],
       retrievalFailed: true,
       requirements: parseTravelerRequirements('Kashmir package ache?'),
     });
@@ -88,6 +90,7 @@ describe('travel package prompt block', () => {
     const result: TourPackageMatchResult = {
       matches: [],
       nearMatches: [],
+      similarMatches: [],
       retrievalFailed: false,
       requirements: parseTravelerRequirements('Andaman package ache?'),
     };
@@ -111,6 +114,7 @@ describe('travel package prompt block', () => {
         },
       ],
       nearMatches: [],
+      similarMatches: [],
       retrievalFailed: false,
       requirements: parseTravelerRequirements('Budget 30k, Kashmir 5 days.'),
     };
@@ -119,5 +123,40 @@ describe('travel package prompt block', () => {
     expect(block).toContain('₹27,999');
     expect(block).toContain(TRAVEL_PACKAGE_SOURCE_OF_TRUTH_RULES);
     expect(block).not.toContain('estimated');
+  });
+
+  it('suggests only verified similar packages when the destination is missing', () => {
+    const sikkim: TourPackageDetail = {
+      ...kashmir,
+      id: 'pkg-s',
+      name: 'Sikkim Escape',
+      destination: 'Sikkim',
+      starting_price: 14500,
+    };
+    const result: TourPackageMatchResult = {
+      matches: [],
+      nearMatches: [],
+      similarMatches: [
+        {
+          package: sikkim,
+          score: 25,
+          fitsBudget: true,
+          reasons: ['Similar verified option'],
+          matchedPrice: 14500,
+          matchedCurrency: 'INR',
+          matchedPricing: null,
+          matchedDeparture: null,
+        },
+      ],
+      retrievalFailed: false,
+      requirements: parseTravelerRequirements(
+        '₹15,000-এর মধ্যে Darjeeling package আছে?'
+      ),
+    };
+    const block = buildTravelPackagePromptBlock(result);
+    expect(block).toContain('Verified similar options');
+    expect(block).toContain('Sikkim');
+    expect(block).toContain('₹14,500');
+    expect(block).not.toContain('Kashmir Delight');
   });
 });

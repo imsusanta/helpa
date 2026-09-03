@@ -3494,7 +3494,10 @@ ALTER TABLE conversations
   ADD COLUMN IF NOT EXISTS ai_sentiment TEXT,
   ADD COLUMN IF NOT EXISTS ai_handoff_required BOOLEAN NOT NULL DEFAULT FALSE,
   ADD COLUMN IF NOT EXISTS ai_resolved BOOLEAN NOT NULL DEFAULT FALSE,
-  ADD COLUMN IF NOT EXISTS ai_faq_category TEXT;
+  ADD COLUMN IF NOT EXISTS ai_faq_category TEXT,
+  ADD COLUMN IF NOT EXISTS ai_answer_source TEXT,
+  ADD COLUMN IF NOT EXISTS ai_answer_confidence TEXT,
+  ADD COLUMN IF NOT EXISTS ai_question_type TEXT;
 -- ============================================================
 -- 028_saas_multi_tenant
 --

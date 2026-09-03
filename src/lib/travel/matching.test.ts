@@ -158,9 +158,46 @@ describe('budget and destination matching', () => {
 
   it('CASE 6: invents nothing when destination has no package', () => {
     const req = parseTravelerRequirements('Andaman package ache?');
-    const { matches, nearMatches } = rankTourPackages(workspaceA, req);
+    const { matches, nearMatches, similarMatches } = rankTourPackages(
+      workspaceA,
+      req
+    );
     expect(matches).toEqual([]);
     expect(nearMatches).toEqual([]);
+    expect(similarMatches).toEqual([]);
+  });
+
+  it('suggests budget-fitting packages from other destinations as similar matches', () => {
+    const catalog = [
+      ...workspaceA,
+      pkg({
+        id: 'a-sikkim',
+        account_id: 'travel-a',
+        name: 'Sikkim Escape',
+        destination: 'Sikkim',
+        starting_price: 14500,
+      }),
+      pkg({
+        id: 'a-dooars',
+        account_id: 'travel-a',
+        name: 'Dooars Weekend',
+        destination: 'Dooars',
+        starting_price: 13000,
+      }),
+    ];
+    const req = parseTravelerRequirements(
+      '₹15,000-এর মধ্যে Darjeeling package আছে?'
+    );
+    const { matches, similarMatches } = rankTourPackages(catalog, req);
+    expect(matches).toEqual([]);
+    expect(similarMatches.map((row) => row.package.destination).sort()).toEqual(
+      ['Dooars', 'Sikkim']
+    );
+    expect(
+      similarMatches.every(
+        (row) => row.matchedPrice != null && row.matchedPrice <= 15000
+      )
+    ).toBe(true);
   });
 
   it('CASE 3: uses departure availability for a requested date', () => {

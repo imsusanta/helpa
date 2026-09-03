@@ -104,4 +104,16 @@ describe('buildReceptionistSystemPrompt', () => {
     });
     expect(prompt).toContain('[PRICING] Consultation: ₹500');
   });
+
+  it('injects the information-policy decision and answer metadata schema', () => {
+    const prompt = buildReceptionistSystemPrompt({
+      ...BASE,
+      informationPolicyContext:
+        'question_type: business\noutcome: safe_fallback',
+    });
+    expect(prompt).toContain('question_type: business');
+    expect(prompt).toContain('"answer_source"');
+    expect(prompt).toContain('"answer_confidence"');
+    expect(prompt).toContain('INFORMATION POLICY DECISION');
+  });
 });

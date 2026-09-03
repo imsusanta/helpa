@@ -189,6 +189,9 @@ export interface StructuredAiInsights {
   hospitalReportSend: Record<string, unknown> | null;
   coachingStudentUpdate: Record<string, unknown> | null;
   emergencyDetected: boolean;
+  answerSource: string | null;
+  answerConfidence: string | null;
+  questionType: string | null;
 }
 
 const EMPTY_INSIGHTS: StructuredAiInsights = {
@@ -210,6 +213,9 @@ const EMPTY_INSIGHTS: StructuredAiInsights = {
   hospitalReportSend: null,
   coachingStudentUpdate: null,
   emergencyDetected: false,
+  answerSource: null,
+  answerConfidence: null,
+  questionType: null,
 };
 
 /**
@@ -251,6 +257,9 @@ export function extractStructuredInsights(
     coachingStudentUpdate:
       (payload.coaching_student_update as Record<string, unknown>) || null,
     emergencyDetected: !!payload.emergency_detected,
+    answerSource: (payload.answer_source as string) || null,
+    answerConfidence: (payload.answer_confidence as string) || null,
+    questionType: (payload.question_type as string) || null,
   };
 }
 

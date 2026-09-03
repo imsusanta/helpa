@@ -176,6 +176,9 @@ export interface Conversation {
   ai_handoff_required?: boolean;
   ai_resolved?: boolean;
   ai_faq_category?: string | null;
+  ai_answer_source?: string | null;
+  ai_answer_confidence?: string | null;
+  ai_question_type?: string | null;
   created_at: string;
   updated_at: string;
   contact?: Contact;

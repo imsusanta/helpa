@@ -1,3 +1,5 @@
+import { withInformationPolicy } from './information-policy';
+
 export const INTENT_FULFILLMENT_POLICY_MARKER =
   '[MANDATORY INTENT FULFILLMENT POLICY]';
 
@@ -57,7 +59,8 @@ export function withIntentFulfillmentPolicy(
       ? TRAVEL_PACKAGE_POLICY
       : GENERAL_ACTION_POLICY;
 
-  return [trimmedPrompt, UNIVERSAL_POLICY, domainPolicy]
-    .filter(Boolean)
-    .join('\n\n');
+  return withInformationPolicy(
+    [trimmedPrompt, UNIVERSAL_POLICY, domainPolicy].filter(Boolean).join('\n\n'),
+    industry
+  );
 }
