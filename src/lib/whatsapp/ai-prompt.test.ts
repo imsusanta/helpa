@@ -104,4 +104,17 @@ describe('buildReceptionistSystemPrompt', () => {
     });
     expect(prompt).toContain('[PRICING] Consultation: ₹500');
   });
+
+  it('does not treat unknown questions as an automatic human handoff', () => {
+    const prompt = buildReceptionistSystemPrompt(BASE);
+    expect(prompt).toContain(
+      'Set "handoff_required": true only when the customer explicitly asks'
+    );
+    expect(prompt).toContain(
+      'An unknown or complex question is NOT a handoff'
+    );
+    expect(prompt).not.toContain(
+      'topic whose factual answer is NOT available'
+    );
+  });
 });

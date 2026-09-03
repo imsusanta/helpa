@@ -38,6 +38,28 @@ export function shouldSkipAiConversation(
   return { skip: false };
 }
 
+const HUMAN_HANDOFF_RE =
+  /\b(human|agent|staff|representative|operator)\b|\btalk to\b|\bspeak (to|with)\b|\breal person\b|\bconnect me\b|মানুষ|এজেন্ট|স্টাফ/i;
+
+/** True when the customer themselves asked for a human, not just a hard question. */
+export function customerRequestedHumanHandoff(
+  text: string | null | undefined
+): boolean {
+  return HUMAN_HANDOFF_RE.test(String(text || '').trim());
+}
+
+/**
+ * Model handoff flags used to pause autopilot. Ignore them unless the
+ * latest customer turn asked for a person — unknown-KB questions must
+ * not silence the next inbound messages.
+ */
+export function honorModelHandoff(
+  modelRequested: boolean,
+  customerText: string | null | undefined
+): boolean {
+  return modelRequested && customerRequestedHumanHandoff(customerText);
+}
+
 export interface HistoryMessage {
   id?: string;
   sender_type: string;

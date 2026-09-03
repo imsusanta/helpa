@@ -417,10 +417,13 @@ export async function resolveAccountAiConfig(
   };
 }
 
-function cooldownForError(error: HelpaAiError): number {
-  return error.code === 'AI_RATE_LIMITED'
-    ? RATE_LIMIT_COOLDOWN_MS
-    : TRANSIENT_COOLDOWN_MS;
+export function providerCooldownMsForError(error: HelpaAiError): number {
+  if (error.code === 'AI_RATE_LIMITED') return RATE_LIMIT_COOLDOWN_MS;
+  // A single abort/timeout is not an outage. Parking the provider for
+  // 10 minutes made the structured→raw retry (and the next inbound
+  // messages) skip every remaining model.
+  if (error.code === 'AI_TIMEOUT') return 0;
+  return TRANSIENT_COOLDOWN_MS;
 }
 
 async function recordProviderFailure(
@@ -429,7 +432,10 @@ async function recordProviderFailure(
   workspaceId: string,
   conversationId: string | undefined
 ): Promise<void> {
-  await setProviderCooldown(provider, cooldownForError(error));
+  const cooldownMs = providerCooldownMsForError(error);
+  if (cooldownMs > 0) {
+    await setProviderCooldown(provider, cooldownMs);
+  }
   try {
     const db = getAdminClient();
     await db.from('audit_logs').insert({
@@ -443,7 +449,7 @@ async function recordProviderFailure(
         error_code: error.code,
         status: error.status || null,
         conversation_id: conversationId || null,
-        cooldown_minutes: cooldownForError(error) / 60000,
+        cooldown_minutes: cooldownMs / 60000,
         timestamp: new Date().toISOString(),
       },
     });

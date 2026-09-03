@@ -371,7 +371,7 @@ export class CloudflareAiProvider implements AiProvider {
 
     const model = options?.model || '@cf/meta/llama-3.1-8b-instruct';
     const maxTokens = options?.maxTokens ?? 1000;
-    const timeoutMs = options?.timeoutMs ?? 10000;
+    const timeoutMs = options?.timeoutMs ?? 25000;
 
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), timeoutMs);

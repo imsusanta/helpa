@@ -22,6 +22,7 @@ import {
   isHospitalIndustryEnabled,
   unansweredCustomerTurn,
   shouldSkipAiConversation,
+  honorModelHandoff,
   unwrapNestedReply,
   type HistoryMessage,
 } from '@/lib/whatsapp/ai-pipeline';
@@ -70,8 +71,7 @@ export async function triggerAiResponse(
     }
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : String(err);
-    console.warn('[AI Assistant] Limit check failed closed:', msg);
-    return;
+    console.warn('[AI Assistant] Limit check warning, continuing:', msg);
   }
 
   const db = getAdminClient();
@@ -627,7 +627,10 @@ export async function triggerAiResponse(
     }
 
     const intent = insights.intent;
-    let handoff_required = insights.handoffRequired;
+    let handoff_required = honorModelHandoff(
+      insights.handoffRequired,
+      latestMessage?.content_text
+    );
     const hospital_patient_info = insights.hospitalPatientInfo;
     const hospital_booking = insights.hospitalBooking;
     const hospital_profile_update = insights.hospitalProfileUpdate;

@@ -9,6 +9,7 @@ import {
   outboundCreatedAtAfter,
   unansweredCustomerTurn,
   shouldSkipAiConversation,
+  honorModelHandoff,
   unwrapNestedReply,
 } from './ai-pipeline';
 
@@ -59,6 +60,24 @@ describe('shouldSkipAiConversation', () => {
         ai_reply_count: 3,
       })
     ).toEqual({ skip: false });
+  });
+});
+
+describe('honorModelHandoff', () => {
+  it('ignores a model handoff on a normal question', () => {
+    expect(honorModelHandoff(true, 'What is the consultation fee?')).toBe(
+      false
+    );
+    expect(honorModelHandoff(true, 'Hi')).toBe(false);
+  });
+
+  it('honors a handoff when the customer asked for a human', () => {
+    expect(honorModelHandoff(true, 'Can I talk to an agent?')).toBe(true);
+    expect(honorModelHandoff(true, 'মানুষ সাথে কথা বলতে চাই')).toBe(true);
+  });
+
+  it('stays off when the model did not request handoff', () => {
+    expect(honorModelHandoff(false, 'Please connect me to staff')).toBe(false);
   });
 });
 
