@@ -169,10 +169,17 @@ export async function POST(req: Request) {
       });
     }
 
-    const failMsg =
-      providerName === 'cloudflare'
-        ? 'Cloudflare AI could not be connected. Please check your credentials and model.'
-        : health.message || 'Connection test failed';
+    let failMsg = health.message || 'Connection test failed';
+    if (failMsg.includes('daily free allocation of 10,000 neurons')) {
+      failMsg =
+        'Cloudflare Daily Quota Reached: You have used up your free allocation of 10,000 neurons for today. Upgrade to Cloudflare Workers Paid ($5/mo) for unlimited usage, or wait for the daily reset.';
+    } else if (
+      failMsg.includes('Workers Free plan') ||
+      failMsg.includes('Upgrade to access this model')
+    ) {
+      failMsg =
+        'This model requires Cloudflare Workers Paid plan. Please choose a free-tier model (e.g. Llama 3.3 70B Fast, Llama 3.2 3B) or upgrade your Cloudflare plan.';
+    }
 
     return NextResponse.json(
       {

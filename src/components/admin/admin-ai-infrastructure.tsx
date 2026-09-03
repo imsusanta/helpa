@@ -188,6 +188,7 @@ export function AdminAiInfrastructure() {
   const [testStatus, setTestStatus] = useState<'success' | 'error' | null>(
     null
   );
+  const [testErrorMessage, setTestErrorMessage] = useState('');
 
   // Form states
   const [selectedProvider, setSelectedProvider] = useState<
@@ -481,21 +482,27 @@ export function AdminAiInfrastructure() {
       const data = await res.json();
       if (res.ok && data.success) {
         setTestStatus('success');
+        setTestErrorMessage('');
         setIsLiveHealthy(true);
         toast.success(
           '✓ Connection successful! Helpa can communicate with this AI provider.'
         );
       } else {
+        const errorDetail =
+          data.error ||
+          'Connection failed. Please check your credentials and selected model.';
         setTestStatus('error');
+        setTestErrorMessage(errorDetail);
         setIsLiveHealthy(false);
-        toast.error(
-          '✕ Connection failed. Please check your API key and model.'
-        );
+        toast.error(`✕ ${errorDetail}`);
       }
     } catch {
+      const networkError =
+        'Connection test failed. Network or server error encountered.';
       setTestStatus('error');
+      setTestErrorMessage(networkError);
       setIsLiveHealthy(false);
-      toast.error('✕ Connection failed. Please check your network and key.');
+      toast.error(`✕ ${networkError}`);
     } finally {
       setIsTesting(false);
     }
@@ -848,11 +855,12 @@ export function AdminAiInfrastructure() {
               </div>
             )}
             {testStatus === 'error' && (
-              <div className="flex items-center gap-2.5 rounded-xl border border-rose-500/30 bg-rose-500/5 p-3 text-xs text-rose-600 dark:text-rose-400">
-                <AlertTriangle className="h-4 w-4 shrink-0" />
-                <span>
-                  ✕ Connection test failed. Please verify your credentials and
-                  selected model.
+              <div className="flex items-start gap-2.5 rounded-xl border border-rose-500/30 bg-rose-500/5 p-3 text-xs text-rose-600 dark:text-rose-400">
+                <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
+                <span className="leading-relaxed">
+                  ✕{' '}
+                  {testErrorMessage ||
+                    'Connection test failed. Please verify your credentials and selected model.'}
                 </span>
               </div>
             )}
