@@ -3,18 +3,6 @@ import { LandingNavbar } from '@/components/landing/navbar';
 import { LandingHero } from '@/components/landing/hero';
 import { LandingFooter } from '@/components/landing/footer';
 
-const LandingInteractiveShowcase = dynamic(
-  () =>
-    import('@/components/landing/interactive-showcase').then(
-      (mod) => mod.LandingInteractiveShowcase
-    ),
-  {
-    loading: () => (
-      <div className="min-h-[520px] bg-[#F1EEFA]" aria-hidden="true" />
-    ),
-  }
-);
-
 const LandingIndustrySolutions = dynamic(
   () =>
     import('@/components/landing/industry-solutions').then(
@@ -102,7 +90,6 @@ export default function LandingPage() {
       <LandingNavbar />
       <main>
         <LandingHero isAuthenticated={false} />
-        <LandingInteractiveShowcase />
         <LandingIndustrySolutions />
         <LandingSecurityBadges />
         <LandingPricingSection />
