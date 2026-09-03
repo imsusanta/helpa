@@ -31,6 +31,8 @@ export interface SystemPromptAugmentationParams {
 export interface IndustryAnswerEvidence {
   promptSuffix?: string;
   retrievalFailed?: boolean;
+  missingRequestedField?: boolean;
+  multipleMatches?: boolean;
   facts?: Array<{
     key: string;
     value: string;

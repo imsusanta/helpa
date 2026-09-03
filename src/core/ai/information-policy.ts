@@ -804,6 +804,103 @@ export function formatInformationDecisionForPrompt(
   return lines.join('\n');
 }
 
+const STAFF_SENDERS = new Set(['agent', 'staff', 'human']);
+
+/**
+ * Conversation is the lowest-trust source. Only human staff messages may
+ * contribute facts. Bot/AI prices are never trusted — they may be prior
+ * hallucinations. Customer messages never supply prices either.
+ */
+export function factsFromStaffConversation(
+  messages: Array<{
+    sender_type?: string | null;
+    content_text?: string | null;
+    content?: string | null;
+  }>,
+  query: string
+): RetrievedFact[] {
+  const facts: RetrievedFact[] = [];
+  for (const message of messages || []) {
+    const sender = String(message.sender_type || '').toLowerCase();
+    if (!STAFF_SENDERS.has(sender)) continue;
+    const text = (message.content_text || message.content || '').trim();
+    if (!text) continue;
+    const priceRe =
+      /(?:Dr\.?\s*)?([A-Za-z\u0980-\u09FF][\w\u0980-\u09FF .]{1,40}?)\s*(?:package|card|plan|course|fee|price|rate)?\s*(?:is|=|:|—|-)?\s*(?:₹|rs\.?|inr)\s*([0-9,]+)/gi;
+    let match: RegExpExecArray | null;
+    while ((match = priceRe.exec(text)) !== null) {
+      const entity = match[1]
+        .trim()
+        .replace(/\s+(package|card|plan|course|fee|price|rate)$/i, '');
+      const amount = Number(match[2].replace(/,/g, ''));
+      if (!entity || entity.length < 2 || !Number.isFinite(amount) || amount <= 0) {
+        continue;
+      }
+      facts.push({
+        key: `${entity}.price`,
+        value: `₹${amount.toLocaleString('en-IN')}`,
+        source: 'conversation',
+        entity,
+        field: 'price',
+      });
+    }
+  }
+  if (facts.length === 0) return [];
+  const q = (query || '').toLowerCase();
+  const mentioned = facts.filter(
+    (fact) => fact.entity && q.includes(fact.entity.toLowerCase())
+  );
+  return mentioned.length > 0 ? mentioned : facts;
+}
+
+/**
+ * Static workspace configuration. Never extract prices from welcome copy —
+ * marketing text goes stale and is not a verified rate card.
+ */
+export function factsFromBusinessConfiguration(input: {
+  businessName?: string | null;
+  welcomeMessage?: string | null;
+  query?: string;
+}): RetrievedFact[] {
+  const facts: RetrievedFact[] = [];
+  const query = input.query || '';
+
+  if (
+    input.businessName?.trim() &&
+    /\b(name|called|business|agency|clinic|hospital|institute|academy)\b/i.test(
+      query
+    )
+  ) {
+    facts.push({
+      key: 'business.name',
+      value: input.businessName.trim(),
+      source: 'configuration',
+      field: 'name',
+    });
+  }
+
+  const welcome = input.welcomeMessage || '';
+  if (
+    welcome &&
+    !PRICE_IN_TEXT_RE.test(welcome) &&
+    /\b(hour|hours|timing|timings|open|close|am|pm)\b/i.test(query)
+  ) {
+    const hours = welcome.match(
+      /(?:open|hours?|timing|timings)[:\s]+([^.\n]{3,80})/i
+    );
+    if (hours?.[1]?.trim()) {
+      facts.push({
+        key: 'business.hours',
+        value: hours[1].trim(),
+        source: 'configuration',
+        field: 'hours',
+      });
+    }
+  }
+
+  return facts;
+}
+
 export function factsFromKnowledgeItems(
   items: Array<{ question_title?: string; answer_content?: string; category?: string }>,
   query: string

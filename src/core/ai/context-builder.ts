@@ -41,7 +41,7 @@ export async function buildAiContextBundle({
   // 1. Fetch account & industry configuration
   const { data: account } = await db
     .from('accounts')
-    .select('id, name, industry, ai_system_prompt, openrouter_model')
+    .select('id, name, industry, ai_system_prompt, welcome_message, openrouter_model')
     .eq('id', accountId)
     .single();
 
@@ -152,5 +152,7 @@ ${toolsSummary}${languageDirective}
     knowledgeSnippets,
     availableTools,
     businessName,
+    welcomeMessage: account?.welcome_message ?? null,
+    staffMessages: memory.staffMessages,
   };
 }

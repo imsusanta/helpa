@@ -10,6 +10,8 @@ import type { AiMessage } from './provider';
 
 export interface ConversationMemoryContext {
   messages: AiMessage[];
+  /** Human staff turns only. Bot/AI prices must never become conversation facts. */
+  staffMessages: Array<{ sender_type: string; content_text: string }>;
   contactName?: string;
   contactMobile?: string;
   contactNotes?: string;
@@ -40,8 +42,8 @@ export async function getConversationMemory(
     .order('created_at', { ascending: false })
     .limit(limit);
 
-  const formattedMessages: AiMessage[] = (rawMessages || [])
-    .reverse()
+  const ordered = [...(rawMessages || [])].reverse();
+  const formattedMessages: AiMessage[] = ordered
     .filter((m) => m.content_text && m.content_text.trim().length > 0)
     .map((m) => ({
       role:
@@ -51,8 +53,22 @@ export async function getConversationMemory(
       content: m.content_text,
     }));
 
+  const staffMessages = ordered
+    .filter((m) => {
+      const sender = String(m.sender_type || '').toLowerCase();
+      return (
+        (sender === 'agent' || sender === 'staff' || sender === 'human') &&
+        Boolean(m.content_text?.trim())
+      );
+    })
+    .map((m) => ({
+      sender_type: String(m.sender_type),
+      content_text: String(m.content_text),
+    }));
+
   return {
     messages: formattedMessages,
+    staffMessages,
     contactName: contact?.name,
     contactMobile: contact?.phone,
     contactNotes: contact?.notes,

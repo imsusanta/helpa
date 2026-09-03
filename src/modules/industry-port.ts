@@ -17,7 +17,17 @@ import {
 import { getAdminClient } from '@/lib/db/server';
 import { matchTourPackagesForMessage } from '@/lib/travel/retrieval';
 import { buildTravelPackagePromptBlock } from '@/lib/travel/prompt';
-import { evidenceFromTravelResult } from '@/lib/whatsapp/ai-information';
+import {
+  evidenceFromCoachingCourses,
+  evidenceFromHospitalDoctors,
+  evidenceFromTravelResult,
+  type CoachingCourseRow,
+  type HospitalDoctorRow,
+} from '@/lib/whatsapp/ai-information';
+import {
+  formatCoachingCourses,
+  formatDoctors,
+} from '@/lib/whatsapp/ai-context';
 import {
   getIndustryModule,
   resolveSystemPrompt,
@@ -53,6 +63,8 @@ async function gatherTravelEvidence(
   return {
     promptSuffix: buildTravelPackagePromptBlock(packageResult),
     retrievalFailed: packageResult.retrievalFailed,
+    missingRequestedField: evidence.missingRequestedField,
+    multipleMatches: evidence.multipleMatches,
     facts: evidence.databaseFacts?.map((fact) => ({
       key: fact.key,
       value: fact.value,
@@ -64,13 +76,77 @@ async function gatherTravelEvidence(
   };
 }
 
+function toPortFacts(
+  facts: ReturnType<typeof evidenceFromHospitalDoctors>['databaseFacts']
+): IndustryAnswerEvidence['facts'] {
+  return facts?.map((fact) => ({
+    key: fact.key,
+    value: fact.value,
+    source: 'database' as const,
+    entity: fact.entity,
+    field: fact.field,
+  }));
+}
+
+async function gatherHospitalEvidence(
+  accountId: string,
+  userMessage: string
+): Promise<IndustryAnswerEvidence> {
+  const { data, error } = await getAdminClient()
+    .from('hospital_doctors')
+    .select(
+      'name, department, specialization, consultation_fee, fee, available_days, working_hours'
+    )
+    .eq('account_id', accountId)
+    .eq('status', 'active');
+  if (error) return { retrievalFailed: true };
+  const doctors = (data || []) as HospitalDoctorRow[];
+  const evidence = evidenceFromHospitalDoctors(doctors, userMessage);
+  return {
+    promptSuffix: doctors.length
+      ? `\n\n${formatDoctors(doctors as Parameters<typeof formatDoctors>[0])}`
+      : '',
+    retrievalFailed: false,
+    missingRequestedField: evidence.missingRequestedField,
+    multipleMatches: evidence.multipleMatches,
+    facts: toPortFacts(evidence.databaseFacts),
+  };
+}
+
+async function gatherCoachingEvidence(
+  accountId: string,
+  userMessage: string
+): Promise<IndustryAnswerEvidence> {
+  const { data, error } = await getAdminClient()
+    .from('coaching_courses')
+    .select('name, fee, duration')
+    .eq('account_id', accountId);
+  if (error) return { retrievalFailed: true };
+  const courses = (data || []) as CoachingCourseRow[];
+  const evidence = evidenceFromCoachingCourses(courses, userMessage);
+  return {
+    promptSuffix: courses.length ? `\n\n${formatCoachingCourses(courses)}` : '',
+    retrievalFailed: false,
+    missingRequestedField: evidence.missingRequestedField,
+    multipleMatches: evidence.multipleMatches,
+    facts: toPortFacts(evidence.databaseFacts),
+  };
+}
+
 export const modulesIndustryPort: IndustryModulePort = {
   getIndustryModule: (industry) => toCoreManifest(industry),
   resolveSystemPrompt: (industry, customPrompt) =>
     resolveSystemPrompt(industry, customPrompt),
   gatherAnswerEvidence: async ({ industry, accountId, userMessage }) => {
-    if (resolveIndustryAlias(industry) !== 'travel') return {};
-    return gatherTravelEvidence(accountId, userMessage);
+    const alias = resolveIndustryAlias(industry);
+    if (alias === 'travel') return gatherTravelEvidence(accountId, userMessage);
+    if (alias === 'hospital_clinic') {
+      return gatherHospitalEvidence(accountId, userMessage);
+    }
+    if (alias === 'coaching' || alias === 'solo_teacher') {
+      return gatherCoachingEvidence(accountId, userMessage);
+    }
+    return {};
   },
   augmentSystemPrompt: async ({
     industry,
@@ -78,9 +154,20 @@ export const modulesIndustryPort: IndustryModulePort = {
     userMessage,
     systemPrompt,
   }) => {
-    if (resolveIndustryAlias(industry) !== 'travel') return systemPrompt;
-    const evidence = await gatherTravelEvidence(accountId, userMessage);
-    return systemPrompt + (evidence.promptSuffix || '');
+    const alias = resolveIndustryAlias(industry);
+    if (alias === 'travel') {
+      const evidence = await gatherTravelEvidence(accountId, userMessage);
+      return systemPrompt + (evidence.promptSuffix || '');
+    }
+    if (alias === 'hospital_clinic') {
+      const evidence = await gatherHospitalEvidence(accountId, userMessage);
+      return systemPrompt + (evidence.promptSuffix || '');
+    }
+    if (alias === 'coaching' || alias === 'solo_teacher') {
+      const evidence = await gatherCoachingEvidence(accountId, userMessage);
+      return systemPrompt + (evidence.promptSuffix || '');
+    }
+    return systemPrompt;
   },
   getSeededKnowledgeTitles: () => {
     const titles = new Set<string>();

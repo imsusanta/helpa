@@ -14,7 +14,9 @@ import { aiToolRegistry } from './tools';
 import {
   applyInformationGuard,
   decideInformationResponse,
+  factsFromBusinessConfiguration,
   factsFromKnowledgeItems,
+  factsFromStaffConversation,
   formatInformationDecisionForPrompt,
 } from './information-policy';
 import type {
@@ -108,7 +110,18 @@ export async function executeAiPipeline({
         userMessage
       ),
       databaseFacts: industryEvidence.facts,
+      configurationFacts: factsFromBusinessConfiguration({
+        businessName: bundle.businessName,
+        welcomeMessage: bundle.welcomeMessage,
+        query: userMessage,
+      }),
+      conversationFacts: factsFromStaffConversation(
+        bundle.staffMessages || [],
+        userMessage
+      ),
       similarSuggestions: industryEvidence.similar,
+      missingRequestedField: industryEvidence.missingRequestedField,
+      multipleMatches: industryEvidence.multipleMatches,
       failedSources: [
         ...(industryEvidence.retrievalFailed ? (['database'] as const) : []),
         ...(kbFailed ? (['knowledge_base'] as const) : []),

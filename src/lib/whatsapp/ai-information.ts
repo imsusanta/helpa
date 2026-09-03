@@ -1,6 +1,8 @@
 import {
   decideInformationResponse,
+  factsFromBusinessConfiguration,
   factsFromKnowledgeItems,
+  factsFromStaffConversation,
   formatInformationDecisionForPrompt,
   type InformationDecision,
   type InformationEvidence,
@@ -10,6 +12,39 @@ import {
 import type { KnowledgeItem } from '@/core/knowledge';
 import { formatMoney } from '@/lib/travel/matching';
 import type { TourPackageMatchResult } from '@/lib/travel/types';
+
+export interface HospitalDoctorRow {
+  name: string;
+  department?: string | null;
+  specialization?: string | null;
+  consultation_fee?: number | string | null;
+  fee?: number | string | null;
+  available_days?: string[] | null;
+  working_hours?: unknown;
+}
+
+export interface CoachingCourseRow {
+  name: string;
+  fee?: number | string | null;
+  duration?: string | null;
+}
+
+function parsePositiveFee(value: unknown): number | null {
+  if (typeof value === 'number' && Number.isFinite(value) && value > 0) {
+    return value;
+  }
+  if (typeof value === 'string') {
+    const parsed = Number(value.replace(/,/g, ''));
+    if (Number.isFinite(parsed) && parsed > 0) return parsed;
+  }
+  return null;
+}
+
+function queryMentionsEntity(query: string, entity: string): boolean {
+  const q = (query || '').toLowerCase();
+  const name = entity.toLowerCase().replace(/^dr\.?\s+/i, '').trim();
+  return name.length > 2 && q.includes(name);
+}
 
 export function evidenceFromTravelResult(
   result: TourPackageMatchResult | null | undefined
@@ -126,6 +161,167 @@ export function factsFromHospitalContext(
   return [];
 }
 
+export function factsFromHospitalDoctors(
+  doctors: HospitalDoctorRow[] | undefined,
+  query: string
+): RetrievedFact[] {
+  if (!doctors?.length) return [];
+  const facts: RetrievedFact[] = [];
+  for (const doctor of doctors) {
+    const name = (doctor.name || '').replace(/^Dr\.\s+/i, '').trim();
+    if (!name) continue;
+    const fee = parsePositiveFee(doctor.consultation_fee ?? doctor.fee);
+    if (fee) {
+      facts.push({
+        key: `${name}.fee`,
+        value: `₹${fee.toLocaleString('en-IN')}`,
+        source: 'database',
+        entity: name,
+        field: 'fee',
+      });
+    }
+    if (doctor.department) {
+      facts.push({
+        key: `${name}.department`,
+        value: String(doctor.department),
+        source: 'database',
+        entity: name,
+        field: 'department',
+      });
+    }
+    const hours = doctor.working_hours as
+      | { start?: string; end?: string }
+      | null
+      | undefined;
+    if (hours?.start && hours?.end) {
+      facts.push({
+        key: `${name}.hours`,
+        value: `${hours.start}–${hours.end}`,
+        source: 'database',
+        entity: name,
+        field: 'hours',
+      });
+    }
+  }
+  if (facts.length === 0) return [];
+  const mentioned = facts.filter(
+    (fact) => fact.entity && queryMentionsEntity(query, fact.entity)
+  );
+  if (mentioned.length > 0) return mentioned;
+  if (
+    /\b(doctor|dr|fee|timing|department)\b/i.test(query) ||
+    /ফি|ডাক্তার/.test(query)
+  ) {
+    return facts;
+  }
+  return [];
+}
+
+export function evidenceFromHospitalDoctors(
+  doctors: HospitalDoctorRow[] | undefined,
+  query: string,
+  lookupFailed?: boolean
+): InformationEvidence {
+  if (lookupFailed) {
+    return {
+      retrievalFailed: true,
+      retrievalErrorSource: 'database',
+      failedSources: ['database'],
+    };
+  }
+  if (doctors === undefined) return {};
+  const facts = factsFromHospitalDoctors(doctors, query);
+  const askedFee = /\b(fee|fees|price|koto|কত|dam)\b/i.test(query);
+  const mentioned = (doctors || []).filter((doctor) =>
+    queryMentionsEntity(query, doctor.name || '')
+  );
+  const pool = mentioned.length > 0 ? mentioned : doctors;
+  const missingRequestedField =
+    askedFee &&
+    pool.length > 0 &&
+    pool.every(
+      (doctor) => parsePositiveFee(doctor.consultation_fee ?? doctor.fee) == null
+    );
+  return {
+    databaseFacts: facts,
+    missingRequestedField,
+    multipleMatches:
+      askedFee &&
+      mentioned.length === 0 &&
+      doctors.length > 1 &&
+      /\b(doctor|dr|fee)\b/i.test(query),
+  };
+}
+
+export function factsFromCoachingCourses(
+  courses: CoachingCourseRow[] | undefined,
+  query: string
+): RetrievedFact[] {
+  if (!courses?.length) return [];
+  const facts: RetrievedFact[] = [];
+  for (const course of courses) {
+    const name = (course.name || '').trim();
+    if (!name) continue;
+    const fee = parsePositiveFee(course.fee);
+    if (fee) {
+      facts.push({
+        key: `${name}.fee`,
+        value: `₹${fee.toLocaleString('en-IN')}`,
+        source: 'database',
+        entity: name,
+        field: 'fee',
+      });
+    }
+    if (course.duration) {
+      facts.push({
+        key: `${name}.duration`,
+        value: String(course.duration),
+        source: 'database',
+        entity: name,
+        field: 'duration',
+      });
+    }
+  }
+  if (facts.length === 0) return [];
+  const mentioned = facts.filter(
+    (fact) => fact.entity && queryMentionsEntity(query, fact.entity)
+  );
+  if (mentioned.length > 0) return mentioned;
+  if (/\b(course|batch|fee|class|admission)\b/i.test(query) || /কোর্স|ব্যাচ/.test(query)) {
+    return facts;
+  }
+  return [];
+}
+
+export function evidenceFromCoachingCourses(
+  courses: CoachingCourseRow[] | undefined,
+  query: string,
+  lookupFailed?: boolean
+): InformationEvidence {
+  if (lookupFailed) {
+    return {
+      retrievalFailed: true,
+      retrievalErrorSource: 'database',
+      failedSources: ['database'],
+    };
+  }
+  if (courses === undefined) return {};
+  const facts = factsFromCoachingCourses(courses, query);
+  const askedFee = /\b(fee|fees|price|koto|কত|dam)\b/i.test(query);
+  const mentioned = (courses || []).filter((course) =>
+    queryMentionsEntity(query, course.name || '')
+  );
+  const pool = mentioned.length > 0 ? mentioned : courses;
+  return {
+    databaseFacts: facts,
+    missingRequestedField:
+      askedFee &&
+      pool.length > 0 &&
+      pool.every((course) => parsePositiveFee(course.fee) == null),
+    multipleMatches: askedFee && mentioned.length === 0 && courses.length > 1,
+  };
+}
+
 export function factsFromCoachingContext(
   context: string,
   query: string
@@ -163,6 +359,16 @@ export function decideWhatsAppInformation(input: {
   travelResult?: TourPackageMatchResult | null;
   hospitalContext?: string;
   coachingContext?: string;
+  hospitalDoctors?: HospitalDoctorRow[];
+  coachingCourses?: CoachingCourseRow[];
+  hospitalLookupFailed?: boolean;
+  coachingLookupFailed?: boolean;
+  conversationMessages?: Array<{
+    sender_type?: string | null;
+    content_text?: string | null;
+  }>;
+  businessName?: string | null;
+  welcomeMessage?: string | null;
   highValue?: boolean;
 }): InformationDecision {
   const travelEvidence = evidenceFromTravelResult(input.travelResult);
@@ -170,28 +376,52 @@ export function decideWhatsAppInformation(input: {
     input.knowledgeItems || [],
     input.message
   );
-  const hospitalFacts = factsFromHospitalContext(
-    input.hospitalContext || '',
-    input.message
+  const hospitalStructured = evidenceFromHospitalDoctors(
+    input.hospitalDoctors,
+    input.message,
+    input.hospitalLookupFailed
   );
-  const coachingFacts = factsFromCoachingContext(
-    input.coachingContext || '',
-    input.message
+  const coachingStructured = evidenceFromCoachingCourses(
+    input.coachingCourses,
+    input.message,
+    input.coachingLookupFailed
   );
+  const hospitalFacts =
+    input.hospitalDoctors !== undefined || input.hospitalLookupFailed
+      ? hospitalStructured.databaseFacts || []
+      : factsFromHospitalContext(input.hospitalContext || '', input.message);
+  const coachingFacts =
+    input.coachingCourses !== undefined || input.coachingLookupFailed
+      ? coachingStructured.databaseFacts || []
+      : factsFromCoachingContext(input.coachingContext || '', input.message);
 
   const failedSources: Array<'database' | 'knowledge_base'> = [];
   if (travelEvidence.retrievalFailed) failedSources.push('database');
+  if (input.hospitalLookupFailed || input.coachingLookupFailed) {
+    if (!failedSources.includes('database')) failedSources.push('database');
+  }
   if (input.knowledgeRetrievalFailed) failedSources.push('knowledge_base');
 
   const travelLookupSucceeded =
     input.travelResult != null && !input.travelResult.retrievalFailed;
+  const hospitalLookupSucceeded =
+    input.hospitalDoctors !== undefined && !input.hospitalLookupFailed;
+  const coachingLookupSucceeded =
+    input.coachingCourses !== undefined && !input.coachingLookupFailed;
   const databaseFacts = [
     ...(travelLookupSucceeded ? travelEvidence.databaseFacts || [] : []),
     ...hospitalFacts,
     ...coachingFacts,
   ];
   const hasStructuredDb =
-    travelLookupSucceeded || databaseFacts.length > 0;
+    travelLookupSucceeded ||
+    hospitalLookupSucceeded ||
+    coachingLookupSucceeded ||
+    databaseFacts.length > 0;
+  const industryDbFailed =
+    travelEvidence.retrievalFailed === true ||
+    input.hospitalLookupFailed === true ||
+    input.coachingLookupFailed === true;
 
   return decideInformationResponse({
     message: input.message,
@@ -200,14 +430,30 @@ export function decideWhatsAppInformation(input: {
     evidence: {
       ...travelEvidence,
       knowledgeBaseFacts: kbFacts,
+      configurationFacts: factsFromBusinessConfiguration({
+        businessName: input.businessName,
+        welcomeMessage: input.welcomeMessage,
+        query: input.message,
+      }),
+      conversationFacts: factsFromStaffConversation(
+        input.conversationMessages || [],
+        input.message
+      ),
       databaseFacts: hasStructuredDb ? databaseFacts : undefined,
       similarSuggestions: travelLookupSucceeded
         ? travelEvidence.similarSuggestions
         : undefined,
+      missingRequestedField:
+        hospitalStructured.missingRequestedField === true ||
+        coachingStructured.missingRequestedField === true ||
+        travelEvidence.missingRequestedField === true,
+      multipleMatches:
+        hospitalStructured.multipleMatches === true ||
+        coachingStructured.multipleMatches === true ||
+        travelEvidence.multipleMatches === true,
       failedSources,
-      retrievalFailed:
-        travelEvidence.retrievalFailed === true && databaseFacts.length === 0,
-      retrievalErrorSource: travelEvidence.retrievalFailed
+      retrievalFailed: industryDbFailed && databaseFacts.length === 0,
+      retrievalErrorSource: industryDbFailed
         ? 'database'
         : input.knowledgeRetrievalFailed && !hasStructuredDb
           ? 'knowledge_base'

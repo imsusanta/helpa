@@ -21,10 +21,30 @@ export interface LabReportRow {
   internal_notes?: string | null;
 }
 
+export interface HospitalDoctorContextRow {
+  name: string;
+  department?: string;
+  specialization?: string;
+  consultation_fee?: number;
+  fee?: number;
+  available_days?: string[];
+  working_hours?: unknown;
+}
+
+export interface CoachingCourseContextRow {
+  name: string;
+  fee?: number;
+  duration?: string | null;
+}
+
 export interface IndustryAiContext {
   hospitalContext: string;
   coachingContext: string;
   labReports: LabReportRow[] | null;
+  hospitalDoctors: HospitalDoctorContextRow[];
+  coachingCourses: CoachingCourseContextRow[];
+  hospitalLookupFailed: boolean;
+  coachingLookupFailed: boolean;
 }
 
 type MaybeArray<T> = T | T[] | null | undefined;
@@ -47,6 +67,28 @@ export function formatCoachingStudents(
         ? (s.metadata as Record<string, string>)
         : {};
     out += `- Name: ${s.name}, Student ID: ${meta.student_id || 'N/A'}, Exam Preparation (Target Exam): ${meta.parent_name || 'Not set'}\n`;
+  }
+  return out + '\n';
+}
+
+export function formatCoachingCourses(
+  courses: Array<{
+    name: string;
+    fee?: number | string | null;
+    duration?: string | null;
+  }>
+): string {
+  if (courses.length === 0) return '';
+  let out = 'Available Courses:\n';
+  for (const course of courses) {
+    const fee = Number(course.fee);
+    const feeText =
+      Number.isFinite(fee) && fee > 0
+        ? `Fee: ₹${fee.toLocaleString('en-IN')}`
+        : 'Fee: not listed';
+    out += `- ${course.name}: ${feeText}${
+      course.duration ? `, Duration: ${course.duration}` : ''
+    }\n`;
   }
   return out + '\n';
 }
@@ -178,24 +220,39 @@ export async function buildIndustryAiContext(
   let hospitalContext = '';
   let coachingContext = '';
   let labReports: LabReportRow[] | null = null;
+  let hospitalDoctors: HospitalDoctorContextRow[] = [];
+  let coachingCourses: CoachingCourseContextRow[] = [];
+  let hospitalLookupFailed = false;
+  let coachingLookupFailed = false;
 
   if (args.isCoachingEnabled || args.isSoloTeacherEnabled) {
-    const { data: coachingStudents } = await db
-      .from('contacts')
-      .select('name, phone, metadata')
-      .in('id', args.contactIds);
-    coachingContext = formatCoachingStudents(
-      (coachingStudents || []) as Array<{
-        metadata?: Record<string, string> | null;
-        name: string;
-      }>,
-      args.entityLabel
+    const [studentsRes, coursesRes] = await Promise.all([
+      db
+        .from('contacts')
+        .select('name, phone, metadata')
+        .in('id', args.contactIds),
+      db
+        .from('coaching_courses')
+        .select('name, fee, duration')
+        .eq('account_id', args.accountId),
+    ]);
+    coachingLookupFailed = Boolean(coursesRes.error);
+    coachingCourses = ((coursesRes.data || []) as CoachingCourseContextRow[]).filter(
+      (course) => Boolean(course?.name)
     );
+    coachingContext =
+      formatCoachingStudents(
+        (studentsRes.data || []) as Array<{
+          metadata?: Record<string, string> | null;
+          name: string;
+        }>,
+        args.entityLabel
+      ) + formatCoachingCourses(coachingCourses);
   }
 
   if (args.isHospitalEnabled) {
     const [
-      { data: doctors },
+      doctorsRes,
       { data: branches },
       { data: appts },
       { data: labReportsData },
@@ -243,6 +300,10 @@ export async function buildIndustryAiContext(
     ]);
 
     labReports = labReportsData as LabReportRow[] | null;
+    hospitalLookupFailed = Boolean(doctorsRes.error);
+    hospitalDoctors = ((doctorsRes.data || []) as HospitalDoctorContextRow[]).filter(
+      (doctor) => Boolean(doctor?.name)
+    );
 
     hospitalContext += formatRegisteredPatients(
       (registeredPatients || []) as Parameters<
@@ -263,7 +324,7 @@ export async function buildIndustryAiContext(
     }
 
     hospitalContext += formatDoctors(
-      (doctors || []) as Parameters<typeof formatDoctors>[0]
+      hospitalDoctors as Parameters<typeof formatDoctors>[0]
     );
     hospitalContext += formatBranches(
       (branches || []) as Parameters<typeof formatBranches>[0]
@@ -274,5 +335,13 @@ export async function buildIndustryAiContext(
     hospitalContext += formatLabReports(labReports || []);
   }
 
-  return { hospitalContext, coachingContext, labReports };
+  return {
+    hospitalContext,
+    coachingContext,
+    labReports,
+    hospitalDoctors,
+    coachingCourses,
+    hospitalLookupFailed,
+    coachingLookupFailed,
+  };
 }

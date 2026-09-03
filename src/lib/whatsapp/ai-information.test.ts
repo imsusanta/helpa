@@ -5,6 +5,7 @@ import {
   decideWhatsAppInformation,
   evidenceFromTravelResult,
   factsFromHospitalContext,
+  factsFromHospitalDoctors,
 } from './ai-information';
 
 describe('WhatsApp information evidence', () => {
@@ -77,5 +78,88 @@ describe('WhatsApp information evidence', () => {
     });
     expect(decision.outcome).toBe('safe_fallback');
     expect(decision.outcome).not.toBe('system_error');
+  });
+
+  it('answers a named doctor fee from structured hospital rows', () => {
+    const decision = decideWhatsAppInformation({
+      message: 'Dr. Rao consultation fee koto?',
+      industry: 'health',
+      hospitalDoctors: [
+        {
+          name: 'Rao',
+          department: 'Cardiology',
+          consultation_fee: 500,
+        },
+      ],
+    });
+    expect(decision.outcome).toBe('direct_answer');
+    expect(decision.answerSource).toBe('database');
+    expect(decision.resolvedFacts.some((fact) => fact.value.includes('500'))).toBe(
+      true
+    );
+  });
+
+  it('does not invent a fee when the doctor row has no consultation fee', () => {
+    const decision = decideWhatsAppInformation({
+      message: 'Dr. Rao fee koto?',
+      industry: 'health',
+      hospitalDoctors: [{ name: 'Rao', department: 'Cardiology', consultation_fee: 0 }],
+    });
+    expect(decision.outcome).toBe('safe_fallback');
+    expect(decision.handoffRequired).toBe(true);
+    expect(factsFromHospitalDoctors([{ name: 'Rao', consultation_fee: 0 }], 'Dr. Rao fee koto?')).toEqual(
+      expect.not.arrayContaining([expect.objectContaining({ field: 'fee' })])
+    );
+  });
+
+  it('answers a coaching course fee from the courses table', () => {
+    const decision = decideWhatsAppInformation({
+      message: 'NEET course fee koto?',
+      industry: 'coaching',
+      coachingCourses: [{ name: 'NEET Crash', fee: 12000, duration: '6 months' }],
+    });
+    expect(decision.outcome).toBe('direct_answer');
+    expect(decision.answerSource).toBe('database');
+    expect(
+      decision.resolvedFacts.some((fact) => fact.field === 'fee' && fact.value.includes('12,000'))
+    ).toBe(true);
+  });
+
+  it('ignores a bot-invented price in conversation history', () => {
+    const decision = decideWhatsAppInformation({
+      message: 'Platinum card koto?',
+      industry: 'coaching',
+      coachingCourses: [],
+      conversationMessages: [
+        { sender_type: 'bot', content_text: 'Platinum card is ₹999' },
+        { sender_type: 'customer', content_text: 'Platinum card koto?' },
+      ],
+    });
+    expect(decision.outcome).toBe('safe_fallback');
+    expect(decision.resolvedFacts).toEqual([]);
+  });
+
+  it('uses a staff-confirmed price only when the database has no fee', () => {
+    const decision = decideWhatsAppInformation({
+      message: 'Platinum card koto?',
+      industry: 'coaching',
+      coachingCourses: [],
+      conversationMessages: [
+        { sender_type: 'agent', content_text: 'Platinum card is ₹1,500' },
+      ],
+    });
+    expect(decision.outcome).toBe('direct_answer');
+    expect(decision.answerSource).toBe('conversation');
+    expect(decision.resolvedFacts[0]?.value).toContain('1,500');
+  });
+
+  it('treats a hospital roster outage as system error, not missing data', () => {
+    const decision = decideWhatsAppInformation({
+      message: 'Dr. Rao fee koto?',
+      industry: 'health',
+      hospitalLookupFailed: true,
+    });
+    expect(decision.outcome).toBe('system_error');
+    expect(decision.fallbackMessage).toMatch(/verify|confirm/i);
   });
 });

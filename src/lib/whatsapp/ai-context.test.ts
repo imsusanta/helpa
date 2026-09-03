@@ -3,6 +3,7 @@ import {
   buildIndustryAiContext,
   formatAppointments,
   formatBranches,
+  formatCoachingCourses,
   formatCoachingStudents,
   formatDoctors,
   formatLabReports,
@@ -161,6 +162,8 @@ describe('buildIndustryAiContext', () => {
     expect(ctx.hospitalContext).toContain('Dr. Rao (Cardiology');
     expect(ctx.hospitalContext).toContain('Main: MG Road');
     expect(ctx.coachingContext).toBe('');
+    expect(ctx.hospitalDoctors[0]?.name).toBe('Rao');
+    expect(ctx.hospitalLookupFailed).toBe(false);
   });
 
   it('builds coaching context and skips hospital queries when coaching', async () => {
@@ -176,5 +179,30 @@ describe('buildIndustryAiContext', () => {
     expect(ctx.coachingContext).toContain('Student ID: STU-1');
     expect(ctx.hospitalContext).toBe('');
     expect(ctx.labReports).toBeNull();
+    expect(ctx.coachingCourses).toEqual([]);
+    expect(ctx.coachingLookupFailed).toBe(false);
+  });
+
+  it('loads coaching courses as structured catalog rows', async () => {
+    const db = stubDb({
+      contacts: [{ name: 'Priya', metadata: { student_id: 'STU-1' } }],
+      coaching_courses: [{ name: 'NEET Crash', fee: 12000, duration: '6 months' }],
+    });
+    const ctx = await buildIndustryAiContext(db, {
+      ...baseArgs,
+      isHospitalEnabled: false,
+      isCoachingEnabled: true,
+      entityLabel: 'Student',
+    });
+    expect(ctx.coachingCourses[0]).toEqual({
+      name: 'NEET Crash',
+      fee: 12000,
+      duration: '6 months',
+    });
+    expect(ctx.coachingContext).toContain('Available Courses:');
+    expect(ctx.coachingContext).toContain('NEET Crash');
+    expect(formatCoachingCourses([{ name: 'JEE', fee: 0 }])).toContain(
+      'Fee: not listed'
+    );
   });
 });

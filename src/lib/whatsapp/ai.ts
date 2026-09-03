@@ -510,8 +510,15 @@ export async function triggerAiResponse(
         : kbEntries
   );
 
-  const { hospitalContext, coachingContext, labReports } =
-    await buildIndustryAiContext(db, {
+  const {
+    hospitalContext,
+    coachingContext,
+    labReports,
+    hospitalDoctors,
+    coachingCourses,
+    hospitalLookupFailed,
+    coachingLookupFailed,
+  } = await buildIndustryAiContext(db, {
       accountId,
       contactId,
       contactIds,
@@ -547,6 +554,20 @@ export async function triggerAiResponse(
     travelResult: travelPackageResult,
     hospitalContext,
     coachingContext,
+    hospitalDoctors: isHospitalEnabled ? hospitalDoctors : undefined,
+    coachingCourses:
+      isCoachingEnabled || isSoloTeacherEnabled ? coachingCourses : undefined,
+    hospitalLookupFailed: isHospitalEnabled ? hospitalLookupFailed : undefined,
+    coachingLookupFailed:
+      isCoachingEnabled || isSoloTeacherEnabled
+        ? coachingLookupFailed
+        : undefined,
+    conversationMessages: messages.map((message) => ({
+      sender_type: message.sender_type,
+      content_text: message.content_text,
+    })),
+    businessName: account?.name,
+    welcomeMessage: account?.welcome_message,
     highValue: Boolean(
       conversation &&
         (conversation.ai_lead_score === 'hot' ||

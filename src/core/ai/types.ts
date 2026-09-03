@@ -65,6 +65,8 @@ export interface AiContextBundle {
   knowledgeSnippets: string[];
   availableTools: AiToolDefinition[];
   businessName?: string;
+  welcomeMessage?: string | null;
+  staffMessages?: Array<{ sender_type: string; content_text: string }>;
 }
 
 export interface AiExecutionResult {

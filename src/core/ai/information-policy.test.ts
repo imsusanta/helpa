@@ -6,6 +6,8 @@ import {
   classifyQuestion,
   decideInformationResponse,
   detectReplyLanguage,
+  factsFromBusinessConfiguration,
+  factsFromStaffConversation,
   formatInformationDecisionForPrompt,
   replyContainsUnverifiedPrice,
   resolveAuthoritativeFacts,
@@ -389,5 +391,42 @@ describe('prompt + metadata', () => {
     expect(detectReplyLanguage('Kashmir package ache?')).toBe('bn');
     expect(resolveIndustryPolicyFamily('health')).toBe('hospital');
     expect(resolveIndustryPolicyFamily('travel')).toBe('travel');
+  });
+});
+
+describe('trusted conversation and configuration facts', () => {
+  it('extracts a staff-confirmed price and ignores bot or customer prices', () => {
+    const facts = factsFromStaffConversation(
+      [
+        { sender_type: 'bot', content_text: 'Platinum card is ₹999' },
+        { sender_type: 'customer', content_text: 'Platinum card is ₹800' },
+        { sender_type: 'agent', content_text: 'Platinum card is ₹1,500' },
+      ],
+      'Platinum card koto?'
+    );
+    expect(facts).toHaveLength(1);
+    expect(facts[0].source).toBe('conversation');
+    expect(facts[0].value).toContain('1,500');
+  });
+
+  it('does not treat welcome-message prices as configuration', () => {
+    expect(
+      factsFromBusinessConfiguration({
+        businessName: 'Helpa Travels',
+        welcomeMessage: 'Hotel rooms from ₹2,000. Open: 9am-6pm',
+        query: 'hotel rate koto?',
+      })
+    ).toEqual([]);
+  });
+
+  it('returns business hours from welcome copy only when asked and no price is present', () => {
+    const facts = factsFromBusinessConfiguration({
+      businessName: 'City Clinic',
+      welcomeMessage: 'Open: 9am to 8pm daily',
+      query: 'What are your hours?',
+    });
+    expect(facts.some((fact) => fact.field === 'hours' && /9am/i.test(fact.value))).toBe(
+      true
+    );
   });
 });
