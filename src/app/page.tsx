@@ -13,6 +13,16 @@ const LandingWhyBusinessesLoveUs = dynamic(
   }
 );
 
+const LandingHowItWorks = dynamic(
+  () =>
+    import('@/components/landing/how-it-works').then(
+      (mod) => mod.LandingHowItWorks
+    ),
+  {
+    loading: () => <div className="min-h-[400px]" aria-hidden="true" />,
+  }
+);
+
 const LandingSecurityBadges = dynamic(
   () =>
     import('@/components/landing/security-badges').then(
@@ -91,6 +101,7 @@ export default function LandingPage() {
       <main>
         <LandingHero isAuthenticated={false} />
         <LandingWhyBusinessesLoveUs />
+        <LandingHowItWorks />
         <LandingSecurityBadges />
         <LandingPricingSection />
         <LandingFaqSection />
