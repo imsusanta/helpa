@@ -64,6 +64,8 @@ export interface InformationEvidence {
   similarSuggestions?: SimilarSuggestion[];
   retrievalFailed?: boolean;
   retrievalErrorSource?: 'database' | 'knowledge_base' | 'search';
+  /** Source-specific failures. A KB outage must not hide a successful DB match. */
+  failedSources?: Array<'database' | 'knowledge_base' | 'search'>;
   /** True when the asked entity exists but a required field (e.g. price) is missing. */
   missingRequestedField?: boolean;
   /** True when several entities match and the customer has not picked one. */
@@ -185,7 +187,11 @@ const AMBIGUOUS_ENTITY_RE = [
 ];
 
 export function detectReplyLanguage(text: string): ReplyLanguage {
-  return /[\u0980-\u09FF]/.test(text) ? 'bn' : 'en';
+  if (/[\u0980-\u09FF]/.test(text)) return 'bn';
+  if (/\b(koto|kota|ache|chai|hobe|dam|apnader|apnar|taka)\b/i.test(text)) {
+    return 'bn';
+  }
+  return 'en';
 }
 
 export function resolveIndustryPolicyFamily(
@@ -247,6 +253,14 @@ export function classifyQuestion(
   }
 
   if (hasAny(trimmed, PRICE_FIELD_RE) && hasAny(trimmed, AMBIGUOUS_ENTITY_RE)) {
+    return 'business';
+  }
+
+  if (
+    hasAny(trimmed, PRICE_FIELD_RE) &&
+    (family === 'travel' || family === 'hospital' || family === 'coaching') &&
+    !hasAny(trimmed, GENERAL_TRAVEL_RE)
+  ) {
     return 'business';
   }
 
@@ -460,7 +474,22 @@ export function decideInformationResponse(input: {
     allowGeneralKnowledge: questionType === 'general',
   };
 
-  if (evidence.retrievalFailed) {
+  const failedSources = evidence.failedSources || [];
+  const databaseLookupFailed =
+    evidence.retrievalFailed === true &&
+    (evidence.retrievalErrorSource === 'database' ||
+      evidence.retrievalErrorSource === 'search' ||
+      !evidence.retrievalErrorSource) &&
+    failedSources.length === 0;
+  const treatAsSystemError =
+    failedSources.includes('database') ||
+    databaseLookupFailed ||
+    (failedSources.includes('knowledge_base') &&
+      evidence.databaseFacts === undefined &&
+      !evidence.similarSuggestions?.length &&
+      questionType !== 'general');
+
+  if (treatAsSystemError) {
     return {
       ...base,
       outcome: 'system_error',

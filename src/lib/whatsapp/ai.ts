@@ -38,7 +38,10 @@ import { getAccountChatbotSettings } from '@/core/ai/chatbot-settings';
 import { matchTourPackagesForMessage } from '@/lib/travel/retrieval';
 import { buildTravelPackagePromptBlock } from '@/lib/travel/prompt';
 import type { TourPackageMatchResult } from '@/lib/travel/types';
-import { applyInformationGuard } from '@/core/ai/information-policy';
+import {
+  applyInformationGuard,
+  classifyQuestion,
+} from '@/core/ai/information-policy';
 import { searchKnowledgeItems } from '@/core/knowledge/search';
 import {
   decideWhatsAppInformation,
@@ -497,7 +500,14 @@ export async function triggerAiResponse(
     limit: 8,
   });
   const kbContext = formatKnowledgeBaseContext(
-    relevantKb.length > 0 ? relevantKb : kbEntries
+    relevantKb.length > 0
+      ? relevantKb
+      : classifyQuestion(
+            latestMessage?.content_text || '',
+            account?.industry
+          ) === 'business'
+        ? []
+        : kbEntries
   );
 
   const { hospitalContext, coachingContext, labReports } =

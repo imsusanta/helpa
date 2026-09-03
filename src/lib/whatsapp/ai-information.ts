@@ -4,6 +4,7 @@ import {
   formatInformationDecisionForPrompt,
   type InformationDecision,
   type InformationEvidence,
+  type RetrievedFact,
   type SimilarSuggestion,
 } from '@/core/ai/information-policy';
 import type { KnowledgeItem } from '@/core/knowledge';
@@ -15,7 +16,11 @@ export function evidenceFromTravelResult(
 ): InformationEvidence {
   if (!result) return {};
   if (result.retrievalFailed) {
-    return { retrievalFailed: true, retrievalErrorSource: 'database' };
+    return {
+      retrievalFailed: true,
+      retrievalErrorSource: 'database',
+      failedSources: ['database'],
+    };
   }
 
   const databaseFacts = result.matches.slice(0, 5).map((row) => ({
@@ -33,9 +38,10 @@ export function evidenceFromTravelResult(
       .join(' · '),
     source: 'database' as const,
     entity: row.package.name,
-    field: row.matchedPrice != null || row.package.starting_price != null
-      ? 'price'
-      : 'details',
+    field:
+      row.matchedPrice != null || row.package.starting_price != null
+        ? 'price'
+        : 'details',
   }));
 
   const similarSuggestions: SimilarSuggestion[] = (result.similarMatches || [])
@@ -51,7 +57,7 @@ export function evidenceFromTravelResult(
       detail: row.package.destination,
     }));
 
-  const askedPrice = /\b(price|koto|কত|fee|rate)\b/i.test(
+  const askedPrice = /\b(price|koto|কত|fee|rate|dam)\b/i.test(
     result.requirements.query
   );
   const missingRequestedField =
@@ -65,8 +71,88 @@ export function evidenceFromTravelResult(
     databaseFacts,
     similarSuggestions,
     missingRequestedField,
-    multipleMatches: result.matches.length > 1 && !result.requirements.destination,
+    multipleMatches:
+      result.matches.length > 1 && !result.requirements.destination,
   };
+}
+
+/**
+ * Pull verified doctor/fee/timing rows out of the hospital context block.
+ * A non-empty context blob is not itself a fact.
+ */
+export function factsFromHospitalContext(
+  context: string,
+  query: string
+): RetrievedFact[] {
+  if (!context?.trim()) return [];
+
+  const facts: RetrievedFact[] = [];
+  const doctorRe =
+    /Dr\.\s+([^(\n]+)\s*\(([^)]+)\):\s*Fee:\s*₹\s*([0-9,]+)/gi;
+  let match: RegExpExecArray | null;
+  while ((match = doctorRe.exec(context)) !== null) {
+    const name = match[1].trim();
+    const dept = match[2].trim();
+    const feeRaw = match[3].replace(/,/g, '');
+    const fee = Number(feeRaw);
+    if (!name || !Number.isFinite(fee) || fee <= 0) continue;
+    facts.push({
+      key: `${name}.fee`,
+      value: `₹${Number(fee).toLocaleString('en-IN')}`,
+      source: 'database',
+      entity: name,
+      field: 'fee',
+    });
+    facts.push({
+      key: `${name}.department`,
+      value: dept,
+      source: 'database',
+      entity: name,
+      field: 'department',
+    });
+  }
+
+  if (facts.length === 0) return [];
+
+  const q = (query || '').toLowerCase();
+  const mentioned = facts.filter((fact) => {
+    const entity = (fact.entity || '').toLowerCase();
+    return entity.length > 2 && q.includes(entity);
+  });
+  if (mentioned.length > 0) return mentioned;
+  if (/\b(doctor|dr|fee|timing|department)\b/i.test(query) || /ফি|ডাক্তার/.test(query)) {
+    return facts;
+  }
+  return [];
+}
+
+export function factsFromCoachingContext(
+  context: string,
+  query: string
+): RetrievedFact[] {
+  if (!context?.trim()) return [];
+  const facts: RetrievedFact[] = [];
+  const feeRe =
+    /(?:course|batch|class)\s*[:\-]?\s*([^,\n]+).*?(?:fee|fees|price)\s*[:\-]?\s*₹?\s*([0-9,]+)/gi;
+  let match: RegExpExecArray | null;
+  while ((match = feeRe.exec(context)) !== null) {
+    const name = match[1].trim();
+    const fee = Number(match[2].replace(/,/g, ''));
+    if (!name || !Number.isFinite(fee) || fee <= 0) continue;
+    facts.push({
+      key: `${name}.fee`,
+      value: `₹${fee.toLocaleString('en-IN')}`,
+      source: 'database',
+      entity: name,
+      field: 'fee',
+    });
+  }
+  if (facts.length === 0) return [];
+  const q = (query || '').toLowerCase();
+  const mentioned = facts.filter(
+    (fact) => fact.entity && q.includes(fact.entity.toLowerCase())
+  );
+  return mentioned.length > 0 ? mentioned : facts;
 }
 
 export function decideWhatsAppInformation(input: {
@@ -84,16 +170,28 @@ export function decideWhatsAppInformation(input: {
     input.knowledgeItems || [],
     input.message
   );
-  const retrievalFailed = Boolean(
-    input.knowledgeRetrievalFailed || travelEvidence.retrievalFailed
+  const hospitalFacts = factsFromHospitalContext(
+    input.hospitalContext || '',
+    input.message
+  );
+  const coachingFacts = factsFromCoachingContext(
+    input.coachingContext || '',
+    input.message
   );
 
-  const hospitalLooksPresent =
-    Boolean(input.hospitalContext && input.hospitalContext.trim()) &&
-    /\b(doctor|fee|timing|₹|rs)\b/i.test(input.message);
-  const coachingLooksPresent =
-    Boolean(input.coachingContext && input.coachingContext.trim()) &&
-    /\b(course|fee|batch|₹|rs)\b/i.test(input.message);
+  const failedSources: Array<'database' | 'knowledge_base'> = [];
+  if (travelEvidence.retrievalFailed) failedSources.push('database');
+  if (input.knowledgeRetrievalFailed) failedSources.push('knowledge_base');
+
+  const travelLookupSucceeded =
+    input.travelResult != null && !input.travelResult.retrievalFailed;
+  const databaseFacts = [
+    ...(travelLookupSucceeded ? travelEvidence.databaseFacts || [] : []),
+    ...hospitalFacts,
+    ...coachingFacts,
+  ];
+  const hasStructuredDb =
+    travelLookupSucceeded || databaseFacts.length > 0;
 
   return decideInformationResponse({
     message: input.message,
@@ -102,35 +200,18 @@ export function decideWhatsAppInformation(input: {
     evidence: {
       ...travelEvidence,
       knowledgeBaseFacts: kbFacts,
-      retrievalFailed,
+      databaseFacts: hasStructuredDb ? databaseFacts : undefined,
+      similarSuggestions: travelLookupSucceeded
+        ? travelEvidence.similarSuggestions
+        : undefined,
+      failedSources,
+      retrievalFailed:
+        travelEvidence.retrievalFailed === true && databaseFacts.length === 0,
       retrievalErrorSource: travelEvidence.retrievalFailed
         ? 'database'
-        : input.knowledgeRetrievalFailed
+        : input.knowledgeRetrievalFailed && !hasStructuredDb
           ? 'knowledge_base'
           : undefined,
-      databaseFacts: [
-        ...(travelEvidence.databaseFacts || []),
-        ...(hospitalLooksPresent
-          ? [
-              {
-                key: 'hospital.context',
-                value: 'hospital context present',
-                source: 'database' as const,
-                field: 'context',
-              },
-            ]
-          : []),
-        ...(coachingLooksPresent
-          ? [
-              {
-                key: 'coaching.context',
-                value: 'coaching context present',
-                source: 'database' as const,
-                field: 'context',
-              },
-            ]
-          : []),
-      ],
     },
   });
 }

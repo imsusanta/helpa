@@ -51,6 +51,13 @@ describe('classifyQuestion', () => {
       'business'
     );
   });
+
+  it('treats Banglish price asks as business', () => {
+    expect(classifyQuestion('oi package ta dam koto hobe?', 'travel')).toBe(
+      'business'
+    );
+    expect(classifyQuestion('hotel rate koto?', 'travel')).toBe('business');
+  });
 });
 
 describe('source-of-truth conflict resolution', () => {
@@ -379,6 +386,7 @@ describe('prompt + metadata', () => {
   it('detects Bengali replies and hospital/coaching families', () => {
     expect(detectReplyLanguage('Platinum card কত?')).toBe('bn');
     expect(detectReplyLanguage('How much is Platinum?')).toBe('en');
+    expect(detectReplyLanguage('Kashmir package ache?')).toBe('bn');
     expect(resolveIndustryPolicyFamily('health')).toBe('hospital');
     expect(resolveIndustryPolicyFamily('travel')).toBe('travel');
   });

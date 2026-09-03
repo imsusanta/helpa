@@ -48,12 +48,35 @@ export async function updateConversationInsights(
     .update(updatePayload)
     .eq('id', args.conversationId);
 
-  if (error) {
+  if (!error) return;
+
+  const missingMetadataColumn =
+    error.code === '42703' ||
+    /ai_answer_source|ai_answer_confidence|ai_question_type/i.test(
+      error.message || ''
+    );
+
+  if (missingMetadataColumn) {
+    const retryPayload = { ...updatePayload };
+    delete retryPayload.ai_answer_source;
+    delete retryPayload.ai_answer_confidence;
+    delete retryPayload.ai_question_type;
+    const retry = await db
+      .from('conversations')
+      .update(retryPayload)
+      .eq('id', args.conversationId);
+    if (!retry.error) return;
     console.error(
       '[AI Assistant] Failed to update conversation AI insights:',
-      error
+      retry.error
     );
+    return;
   }
+
+  console.error(
+    '[AI Assistant] Failed to update conversation AI insights:',
+    error
+  );
 }
 
 /** Pick the stage a fresh AI-sourced deal should land in. */

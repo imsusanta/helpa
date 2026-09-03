@@ -28,6 +28,24 @@ export interface SystemPromptAugmentationParams {
   systemPrompt: string;
 }
 
+export interface IndustryAnswerEvidence {
+  promptSuffix?: string;
+  retrievalFailed?: boolean;
+  facts?: Array<{
+    key: string;
+    value: string;
+    source: 'database';
+    entity?: string;
+    field?: string;
+  }>;
+  similar?: Array<{
+    label: string;
+    destination?: string;
+    price?: string;
+    detail?: string;
+  }>;
+}
+
 export interface IndustryModulePort {
   /** Resolve the industry manifest for a workspace industry. */
   getIndustryModule(industry?: string | null): CoreIndustryManifest;
@@ -41,6 +59,15 @@ export interface IndustryModulePort {
    * grounding). Core calls this instead of hardcoding industry branches.
    */
   augmentSystemPrompt?(params: SystemPromptAugmentationParams): Promise<string>;
+  /**
+   * Optional structured evidence for the information-policy engine so Core
+   * can decide before the LLM without a second industry-specific query.
+   */
+  gatherAnswerEvidence?(params: {
+    industry: string;
+    accountId: string;
+    userMessage: string;
+  }): Promise<IndustryAnswerEvidence>;
   /** Retrieve all seeded knowledge base titles registered across industries. */
   getSeededKnowledgeTitles?(): Set<string> | string[];
 }

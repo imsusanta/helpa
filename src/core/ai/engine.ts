@@ -81,6 +81,17 @@ export async function executeAiPipeline({
   // 3. Industry-specific prompt augmentation via the port (no hardcoded
   //    industry branches in Core — e.g. travel package grounding is registered
   //    by the modules layer).
+  const kbFailed = bundle.knowledgeSnippets.some((snippet) =>
+    snippet.includes('KNOWLEDGE RETRIEVAL ERROR')
+  );
+  const industryEvidence = industryPort.gatherAnswerEvidence
+    ? await industryPort.gatherAnswerEvidence({
+        industry: bundle.industry,
+        accountId: context.accountId,
+        userMessage,
+      })
+    : {};
+
   const informationDecision = decideInformationResponse({
     message: userMessage,
     industry: bundle.industry,
@@ -96,14 +107,25 @@ export async function executeAiPipeline({
         }),
         userMessage
       ),
-      retrievalFailed: bundle.knowledgeSnippets.some((snippet) =>
-        snippet.includes('KNOWLEDGE RETRIEVAL ERROR')
-      ),
+      databaseFacts: industryEvidence.facts,
+      similarSuggestions: industryEvidence.similar,
+      failedSources: [
+        ...(industryEvidence.retrievalFailed ? (['database'] as const) : []),
+        ...(kbFailed ? (['knowledge_base'] as const) : []),
+      ],
+      retrievalFailed: Boolean(industryEvidence.retrievalFailed),
+      retrievalErrorSource: industryEvidence.retrievalFailed
+        ? 'database'
+        : kbFailed
+          ? 'knowledge_base'
+          : undefined,
     },
   });
 
   let systemPrompt = bundle.systemPrompt;
-  if (industryPort.augmentSystemPrompt) {
+  if (industryEvidence.promptSuffix) {
+    systemPrompt += industryEvidence.promptSuffix;
+  } else if (industryPort.augmentSystemPrompt) {
     systemPrompt = await industryPort.augmentSystemPrompt({
       industry: bundle.industry,
       accountId: context.accountId,

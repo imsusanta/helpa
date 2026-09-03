@@ -132,6 +132,43 @@ describe('updateConversationInsights', () => {
     expect(updates[0].payload.ai_lead_score).toBe('hot');
     expect(updates[0].filters.id).toBe('conv-1');
   });
+
+  it('retries without metadata columns when the migration is not applied', async () => {
+    let attempts = 0;
+    const updates: Array<Record<string, unknown>> = [];
+    const db = {
+      from: () => {
+        const chain: Record<string, unknown> = {
+          update: (payload: Record<string, unknown>) => {
+            attempts += 1;
+            updates.push(payload);
+            return chain;
+          },
+          eq: () => {
+            if (attempts === 1) {
+              return Promise.resolve({
+                data: null,
+                error: {
+                  code: '42703',
+                  message: 'column "ai_answer_source" does not exist',
+                },
+              });
+            }
+            return Promise.resolve({ data: null, error: null });
+          },
+        };
+        return chain;
+      },
+    } as unknown as AdminClient;
+
+    await updateConversationInsights(db, {
+      conversationId: 'conv-1',
+      insights: INSIGHTS,
+    });
+    expect(attempts).toBe(2);
+    expect(updates[1]).not.toHaveProperty('ai_answer_source');
+    expect(updates[1].ai_handoff_required).toBe(false);
+  });
 });
 
 describe('syncDealPipeline', () => {

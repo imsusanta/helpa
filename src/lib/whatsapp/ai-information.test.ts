@@ -4,6 +4,7 @@ import type { TourPackageMatchResult } from '@/lib/travel/types';
 import {
   decideWhatsAppInformation,
   evidenceFromTravelResult,
+  factsFromHospitalContext,
 } from './ai-information';
 
 describe('WhatsApp information evidence', () => {
@@ -43,5 +44,38 @@ describe('WhatsApp information evidence', () => {
     });
     expect(decision.outcome).toBe('similar_suggestion');
     expect(decision.similarSuggestions[0]?.destination).toBe('Sikkim');
+  });
+
+  it('does not treat a hospital context blob as a verified fee', () => {
+    expect(
+      factsFromHospitalContext('Registered Patients under this number:\n', 'Dr. Roy fee koto?')
+    ).toEqual([]);
+  });
+
+  it('extracts a named doctor fee from hospital context', () => {
+    const facts = factsFromHospitalContext(
+      'Available Doctors & Clinic Schedules:\n- Dr. Rao (Cardiology - General): Fee: ₹500, Working Days: Mon\n',
+      'Dr. Rao consultation fee koto?'
+    );
+    expect(facts.some((fact) => fact.field === 'fee' && fact.value.includes('500'))).toBe(
+      true
+    );
+  });
+
+  it('does not mark a successful travel lookup as system error when KB is down', () => {
+    const decision = decideWhatsAppInformation({
+      message: 'Kashmir package ache?',
+      industry: 'travel',
+      knowledgeRetrievalFailed: true,
+      travelResult: {
+        matches: [],
+        nearMatches: [],
+        similarMatches: [],
+        retrievalFailed: false,
+        requirements: parseTravelerRequirements('Kashmir package ache?'),
+      },
+    });
+    expect(decision.outcome).toBe('safe_fallback');
+    expect(decision.outcome).not.toBe('system_error');
   });
 });
