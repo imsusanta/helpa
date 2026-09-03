@@ -1,6 +1,13 @@
 'use client';
 
-import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
+import {
+  useState,
+  useEffect,
+  useLayoutEffect,
+  useCallback,
+  useRef,
+  useMemo,
+} from 'react';
 import { createClient } from '@/lib/db/client';
 import { useAuth } from '@/hooks/use-auth';
 import {
@@ -616,30 +623,44 @@ export function MessageThread({
     setShowScrollBottomBtn(!nearBottom);
   }, []);
 
-  const scrollToBottom = useCallback((smooth = true) => {
+  const scrollToBottom = useCallback((smooth = false) => {
     if (!scrollRef.current) return;
     const el = scrollRef.current;
-    el.scrollTo({
-      top: el.scrollHeight,
-      behavior: smooth ? 'smooth' : 'auto',
-    });
+    if (smooth) {
+      el.scrollTo({
+        top: el.scrollHeight,
+        behavior: 'smooth',
+      });
+    } else {
+      el.scrollTop = el.scrollHeight;
+    }
   }, []);
 
-  // Smart Auto-scroll: Only scroll to bottom if newly opened or user was already at bottom
+  // Instant layout positioning on opening/switching conversations (Zero visual sliding)
+  useLayoutEffect(() => {
+    if (!scrollRef.current) return;
+    const isNewConv = prevConvIdRef.current !== conversationId;
+    if (isNewConv) {
+      prevConvIdRef.current = conversationId;
+      prevMessagesLengthRef.current = messages.length;
+      const el = scrollRef.current;
+      el.scrollTop = el.scrollHeight;
+      isNearBottomRef.current = true;
+      setShowScrollBottomBtn(false);
+    }
+  }, [conversationId, messages]);
+
+  // Instant Auto-scroll for new live incoming/outgoing messages (Zero animation)
   useEffect(() => {
     if (!scrollRef.current) return;
     const isNewConv = prevConvIdRef.current !== conversationId;
-    prevConvIdRef.current = conversationId;
+    if (isNewConv) return; // Handled synchronously by useLayoutEffect
 
     const msgCountIncreased = messages.length > prevMessagesLengthRef.current;
     prevMessagesLengthRef.current = messages.length;
 
-    if (isNewConv) {
+    if (msgCountIncreased && isNearBottomRef.current) {
       scrollToBottom(false);
-      isNearBottomRef.current = true;
-      setShowScrollBottomBtn(false);
-    } else if (msgCountIncreased && isNearBottomRef.current) {
-      scrollToBottom(true);
     }
   }, [messages, conversationId, scrollToBottom]);
 
@@ -1350,7 +1371,7 @@ export function MessageThread({
       <div
         ref={scrollRef}
         onScroll={handleScroll}
-        className="flex-1 overflow-y-auto scroll-smooth px-4 py-4"
+        className="flex-1 overflow-y-auto px-4 py-4"
       >
         {loading ? (
           <div className="flex items-center justify-center py-12">
@@ -1429,7 +1450,7 @@ export function MessageThread({
       {showScrollBottomBtn && (
         <button
           type="button"
-          onClick={() => scrollToBottom(true)}
+          onClick={() => scrollToBottom(false)}
           className="bg-background/95 text-foreground border-border/80 hover:bg-accent absolute right-6 bottom-28 z-30 flex h-9 w-9 items-center justify-center rounded-full border shadow-lg backdrop-blur transition-all duration-200 hover:scale-110"
           title="Scroll to bottom"
           aria-label="Scroll to latest message"
