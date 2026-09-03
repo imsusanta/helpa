@@ -164,18 +164,6 @@ const DEFAULT_CLOUDFLARE_MODELS: ModelItem[] = [
     enabled: true,
   },
   {
-    id: '@cf/mistral/mistral-7b-instruct-v0.2',
-    name: 'Mistral 7B Instruct',
-    provider: 'cloudflare',
-    enabled: true,
-  },
-  {
-    id: '@cf/qwen/qwen2.5-7b-instruct',
-    name: 'Qwen 2.5 7B Instruct',
-    provider: 'cloudflare',
-    enabled: true,
-  },
-  {
     id: '@cf/google/gemma-2b-it-lora',
     name: 'Google Gemma 2B IT',
     provider: 'cloudflare',
