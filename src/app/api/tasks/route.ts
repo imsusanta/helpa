@@ -4,7 +4,7 @@ import {
   UnauthorizedError,
   requireRole,
 } from '@/lib/auth/account';
-import { getAdminClient as getSupabaseAdminClient } from '@/lib/supabase/server';
+import { getTasksRepository } from '@/core/repositories/tasks';
 
 const PRIVATE_HEADERS = {
   'Cache-Control': 'private, no-store, no-cache, must-revalidate',
@@ -35,7 +35,6 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
   const correlationId = requestId(request);
   try {
     const ctx = await requireRole('viewer');
-    const supabase = getSupabaseAdminClient();
     const { searchParams } = request.nextUrl;
 
     const status = searchParams.get('status');
@@ -46,38 +45,16 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
     const dueBefore = searchParams.get('due_before');
     const dueAfter = searchParams.get('due_after');
 
-    let query = supabase
-      .from('tasks')
-      .select(
-        '*, contacts(id, name, phone), leads(id, name, stage), deals(id, name, value)'
-      )
-      .eq('account_id', ctx.accountId);
-
-    if (status && status !== 'all') query = query.eq('status', status);
-    if (priority && priority !== 'all') query = query.eq('priority', priority);
-    if (leadId) query = query.eq('lead_id', leadId);
-    if (contactId) query = query.eq('contact_id', contactId);
-    if (dealId) query = query.eq('deal_id', dealId);
-    if (dueBefore) query = query.lte('due_at', dueBefore);
-    if (dueAfter) query = query.gte('due_at', dueAfter);
-
-    const { data: tasks, error } = await query.order('due_at', {
-      ascending: true,
+    const tasksRepo = getTasksRepository({ accountId: ctx.accountId });
+    const tasks = await tasksRepo.listTasks({
+      status: status || undefined,
+      priority: priority || undefined,
+      leadId: leadId || undefined,
+      contactId: contactId || undefined,
+      dealId: dealId || undefined,
+      dueBefore: dueBefore || undefined,
+      dueAfter: dueAfter || undefined,
     });
-
-    if (error) {
-      console.error('[tasks] GET error:', {
-        requestId: correlationId,
-        code: error.code,
-        message: error.message,
-      });
-      return errorResponse(
-        500,
-        'TASKS_FETCH_FAILED',
-        correlationId,
-        'Unable to load tasks.'
-      );
-    }
 
     return NextResponse.json(
       { success: true, data: tasks || [], requestId: correlationId },
@@ -107,7 +84,6 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
   const correlationId = requestId(request);
   try {
     const ctx = await requireRole('agent');
-    const supabase = getSupabaseAdminClient();
     const body = await request.json();
 
     const {
@@ -131,41 +107,19 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       );
     }
 
-    const { data: newTask, error: insertError } = await supabase
-      .from('tasks')
-      .insert({
-        account_id: ctx.accountId,
-        title: title.trim(),
-        description: description ? String(description).trim() : null,
-        due_at: due_at
-          ? new Date(due_at).toISOString()
-          : new Date().toISOString(),
-        status,
-        priority,
-        lead_id: lead_id || null,
-        contact_id: contact_id || null,
-        deal_id: deal_id || null,
-        assigned_user_id: assigned_user_id || ctx.userId,
-        created_by: ctx.userId,
-      })
-      .select(
-        '*, contacts(id, name, phone), leads(id, name, stage), deals(id, name, value)'
-      )
-      .single();
-
-    if (insertError || !newTask) {
-      console.error('[tasks] POST insert error:', {
-        requestId: correlationId,
-        code: insertError?.code,
-        message: insertError?.message,
-      });
-      return errorResponse(
-        500,
-        'TASK_CREATE_FAILED',
-        correlationId,
-        'Unable to create task.'
-      );
-    }
+    const tasksRepo = getTasksRepository({ accountId: ctx.accountId });
+    const newTask = await tasksRepo.createTask({
+      title: title.trim(),
+      description: description ? String(description).trim() : null,
+      due_at,
+      status,
+      priority,
+      lead_id: lead_id || null,
+      contact_id: contact_id || null,
+      deal_id: deal_id || null,
+      assigned_user_id: assigned_user_id || ctx.userId,
+      created_by: ctx.userId,
+    });
 
     return NextResponse.json(
       { success: true, data: newTask, requestId: correlationId },

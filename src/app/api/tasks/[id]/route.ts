@@ -4,7 +4,7 @@ import {
   UnauthorizedError,
   requireRole,
 } from '@/lib/auth/account';
-import { getAdminClient as getSupabaseAdminClient } from '@/lib/supabase/server';
+import { getTasksRepository } from '@/core/repositories/tasks';
 
 const PRIVATE_HEADERS = {
   'Cache-Control': 'private, no-store, no-cache, must-revalidate',
@@ -41,16 +41,10 @@ export async function GET(
     if (!id) return errorResponse(400, 'TASK_ID_REQUIRED', correlationId);
 
     const ctx = await requireRole('viewer');
-    const supabase = getSupabaseAdminClient();
+    const tasksRepo = getTasksRepository({ accountId: ctx.accountId });
+    const task = await tasksRepo.getTaskById(id);
 
-    const { data: task, error } = await supabase
-      .from('tasks')
-      .select('*, contacts(*), leads(*), deals(*)')
-      .eq('id', id)
-      .eq('account_id', ctx.accountId)
-      .maybeSingle();
-
-    if (error || !task) {
+    if (!task) {
       return errorResponse(
         404,
         'TASK_NOT_FOUND',
@@ -93,38 +87,27 @@ export async function PUT(
     if (!id) return errorResponse(400, 'TASK_ID_REQUIRED', correlationId);
 
     const ctx = await requireRole('agent');
-    const supabase = getSupabaseAdminClient();
     const body = await request.json();
 
-    const updates: Record<string, unknown> = {
-      updated_at: new Date().toISOString(),
-    };
-    if (body.title !== undefined) updates.title = String(body.title).trim();
-    if (body.description !== undefined)
-      updates.description = body.description
-        ? String(body.description).trim()
-        : null;
-    if (body.due_at !== undefined)
-      updates.due_at = new Date(body.due_at).toISOString();
-    if (body.status !== undefined) updates.status = body.status;
-    if (body.priority !== undefined) updates.priority = body.priority;
-    if (body.assigned_user_id !== undefined)
-      updates.assigned_user_id = body.assigned_user_id || null;
+    const tasksRepo = getTasksRepository({ accountId: ctx.accountId });
+    const updatedTask = await tasksRepo.updateTask(id, {
+      title: body.title !== undefined ? String(body.title).trim() : undefined,
+      description:
+        body.description !== undefined
+          ? body.description
+            ? String(body.description).trim()
+            : null
+          : undefined,
+      due_at:
+        body.due_at !== undefined
+          ? new Date(body.due_at).toISOString()
+          : undefined,
+      status: body.status,
+      priority: body.priority,
+      assigned_user_id: body.assigned_user_id,
+    });
 
-    const { data: updatedTask, error: updateError } = await supabase
-      .from('tasks')
-      .update(updates)
-      .eq('id', id)
-      .eq('account_id', ctx.accountId)
-      .select('*, contacts(*), leads(*), deals(*)')
-      .single();
-
-    if (updateError || !updatedTask) {
-      console.error('[tasks] PUT update error:', {
-        requestId: correlationId,
-        code: updateError?.code,
-        message: updateError?.message,
-      });
+    if (!updatedTask) {
       return errorResponse(
         500,
         'TASK_UPDATE_FAILED',
@@ -167,27 +150,8 @@ export async function DELETE(
     if (!id) return errorResponse(400, 'TASK_ID_REQUIRED', correlationId);
 
     const ctx = await requireRole('admin');
-    const supabase = getSupabaseAdminClient();
-
-    const { error: delErr } = await supabase
-      .from('tasks')
-      .delete()
-      .eq('id', id)
-      .eq('account_id', ctx.accountId);
-
-    if (delErr) {
-      console.error('[tasks] DELETE error:', {
-        requestId: correlationId,
-        code: delErr.code,
-        message: delErr.message,
-      });
-      return errorResponse(
-        500,
-        'TASK_DELETE_FAILED',
-        correlationId,
-        'Unable to delete task.'
-      );
-    }
+    const tasksRepo = getTasksRepository({ accountId: ctx.accountId });
+    await tasksRepo.deleteTask(id);
 
     return NextResponse.json(
       {
