@@ -425,18 +425,20 @@ export async function POST(
             interactiveReplyId: event.interactiveReplyId,
           });
           if (!followup.handled) {
-            void triggerAiResponse({
-              accountId: tenant.accountId,
-              userId: tenant.userId,
-              conversationId: result.conversationId,
-              contactId: result.contactId,
-              inboundMessageId: result.messageId,
-            }).catch((error: unknown) => {
+            try {
+              await triggerAiResponse({
+                accountId: tenant.accountId,
+                userId: tenant.userId,
+                conversationId: result.conversationId,
+                contactId: result.contactId,
+                inboundMessageId: result.messageId,
+              });
+            } catch (error: unknown) {
               console.error('[evolution webhook] AI trigger failed', {
                 accountId: tenant.accountId,
                 error: error instanceof Error ? error.message : 'unknown',
               });
-            });
+            }
           }
         }
       }

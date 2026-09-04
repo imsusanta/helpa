@@ -116,20 +116,44 @@ const DEFAULT_ORCAROUTER_MODELS: ModelItem[] = [
 
 const DEFAULT_CLOUDFLARE_MODELS: ModelItem[] = [
   {
-    id: '@cf/meta/llama-3.1-8b-instruct',
-    name: 'Llama 3.1 8B Instruct (Recommended)',
-    provider: 'cloudflare',
-    enabled: true,
-  },
-  {
     id: '@cf/meta/llama-3.3-70b-instruct-fp8-fast',
-    name: 'Llama 3.3 70B Fast',
+    name: 'Llama 3.3 70B Fast (Recommended)',
     provider: 'cloudflare',
     enabled: true,
   },
   {
-    id: '@cf/meta/llama-3-8b-instruct',
-    name: 'Llama 3 8B Instruct',
+    id: '@cf/openai/gpt-oss-20b',
+    name: 'OpenAI GPT-OSS 20B (High Speed & Reasoning)',
+    provider: 'cloudflare',
+    enabled: true,
+  },
+  {
+    id: '@cf/mistralai/mistral-small-3.1-24b-instruct',
+    name: 'Mistral Small 3.1 24B Instruct',
+    provider: 'cloudflare',
+    enabled: true,
+  },
+  {
+    id: '@cf/meta/llama-3.2-3b-instruct',
+    name: 'Llama 3.2 3B Instruct (Ultra Fast 400ms)',
+    provider: 'cloudflare',
+    enabled: true,
+  },
+  {
+    id: '@cf/meta/llama-3.2-1b-instruct',
+    name: 'Llama 3.2 1B Instruct',
+    provider: 'cloudflare',
+    enabled: true,
+  },
+  {
+    id: '@cf/qwen/qwen3-30b-a3b-fp8',
+    name: 'Qwen 3 30B MoE FP8',
+    provider: 'cloudflare',
+    enabled: true,
+  },
+  {
+    id: '@cf/meta/llama-3.1-8b-instruct-fp8',
+    name: 'Llama 3.1 8B Instruct FP8',
     provider: 'cloudflare',
     enabled: true,
   },
@@ -140,14 +164,8 @@ const DEFAULT_CLOUDFLARE_MODELS: ModelItem[] = [
     enabled: true,
   },
   {
-    id: '@cf/mistral/mistral-7b-instruct-v0.2',
-    name: 'Mistral 7B Instruct',
-    provider: 'cloudflare',
-    enabled: true,
-  },
-  {
-    id: '@cf/qwen/qwen2.5-7b-instruct',
-    name: 'Qwen 2.5 7B Instruct',
+    id: '@cf/google/gemma-2b-it-lora',
+    name: 'Google Gemma 2B IT',
     provider: 'cloudflare',
     enabled: true,
   },
@@ -170,6 +188,7 @@ export function AdminAiInfrastructure() {
   const [testStatus, setTestStatus] = useState<'success' | 'error' | null>(
     null
   );
+  const [testErrorMessage, setTestErrorMessage] = useState('');
 
   // Form states
   const [selectedProvider, setSelectedProvider] = useState<
@@ -194,6 +213,49 @@ export function AdminAiInfrastructure() {
   const [customModelName, setCustomModelName] = useState('');
   const [customModelId, setCustomModelId] = useState('');
   const [customModelError, setCustomModelError] = useState('');
+  const [isSyncingCfModels, setIsSyncingCfModels] = useState(false);
+
+  const handleSyncCloudflareModels = async () => {
+    setIsSyncingCfModels(true);
+    try {
+      const res = await fetch('/api/admin/ai/cloudflare-models');
+      if (!res.ok) {
+        const data = await res.json();
+        throw new Error(data.error || 'Failed to fetch Cloudflare models');
+      }
+      const data = await res.json();
+      const models = data.models || [];
+      if (models.length === 0) {
+        toast.info(
+          'No text generation models found in your Cloudflare account.'
+        );
+        return;
+      }
+
+      setCustomModels((prev) => {
+        const merged = [...prev];
+        models.forEach((cm: ModelItem) => {
+          const idx = merged.findIndex((m) => m.id === cm.id);
+          if (idx >= 0) {
+            merged[idx] = cm;
+          } else {
+            merged.push(cm);
+          }
+        });
+        return merged;
+      });
+
+      toast.success(
+        `Synced ${models.length} Cloudflare-hosted models from your account!`
+      );
+    } catch (err: unknown) {
+      const msg =
+        err instanceof Error ? err.message : 'Failed to sync models';
+      toast.error(msg);
+    } finally {
+      setIsSyncingCfModels(false);
+    }
+  };
 
   // Fetch settings, usage & health
   const loadSettings = useCallback(async () => {
@@ -420,21 +482,27 @@ export function AdminAiInfrastructure() {
       const data = await res.json();
       if (res.ok && data.success) {
         setTestStatus('success');
+        setTestErrorMessage('');
         setIsLiveHealthy(true);
         toast.success(
           '✓ Connection successful! Helpa can communicate with this AI provider.'
         );
       } else {
+        const errorDetail =
+          data.error ||
+          'Connection failed. Please check your credentials and selected model.';
         setTestStatus('error');
+        setTestErrorMessage(errorDetail);
         setIsLiveHealthy(false);
-        toast.error(
-          '✕ Connection failed. Please check your API key and model.'
-        );
+        toast.error(`✕ ${errorDetail}`);
       }
     } catch {
+      const networkError =
+        'Connection test failed. Network or server error encountered.';
       setTestStatus('error');
+      setTestErrorMessage(networkError);
       setIsLiveHealthy(false);
-      toast.error('✕ Connection failed. Please check your network and key.');
+      toast.error(`✕ ${networkError}`);
     } finally {
       setIsTesting(false);
     }
@@ -731,16 +799,31 @@ export function AdminAiInfrastructure() {
                 <Label className="text-foreground text-xs font-medium">
                   AI Model
                 </Label>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setCustomModelError('');
-                    setIsCustomModelOpen(true);
-                  }}
-                  className="text-primary text-[11px] font-semibold hover:underline"
-                >
-                  + Add Custom Model
-                </button>
+                <div className="flex items-center gap-3">
+                  {selectedProvider === 'cloudflare' && (
+                    <button
+                      type="button"
+                      onClick={handleSyncCloudflareModels}
+                      disabled={isSyncingCfModels}
+                      className="text-primary inline-flex cursor-pointer items-center gap-1 text-[11px] font-semibold hover:underline disabled:opacity-50"
+                    >
+                      {isSyncingCfModels && (
+                        <Loader2 className="h-3 w-3 animate-spin" />
+                      )}
+                      Sync Cloudflare Models
+                    </button>
+                  )}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setCustomModelError('');
+                      setIsCustomModelOpen(true);
+                    }}
+                    className="text-primary text-[11px] font-semibold hover:underline"
+                  >
+                    + Add Custom Model
+                  </button>
+                </div>
               </div>
               <Select
                 value={selectedModel}
@@ -772,11 +855,12 @@ export function AdminAiInfrastructure() {
               </div>
             )}
             {testStatus === 'error' && (
-              <div className="flex items-center gap-2.5 rounded-xl border border-rose-500/30 bg-rose-500/5 p-3 text-xs text-rose-600 dark:text-rose-400">
-                <AlertTriangle className="h-4 w-4 shrink-0" />
-                <span>
-                  ✕ Connection test failed. Please verify your credentials and
-                  selected model.
+              <div className="flex items-start gap-2.5 rounded-xl border border-rose-500/30 bg-rose-500/5 p-3 text-xs text-rose-600 dark:text-rose-400">
+                <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
+                <span className="leading-relaxed">
+                  ✕{' '}
+                  {testErrorMessage ||
+                    'Connection test failed. Please verify your credentials and selected model.'}
                 </span>
               </div>
             )}

@@ -5,7 +5,7 @@ export const dynamic = 'force-dynamic';
 export const revalidate = 0;
 
 export const metadata = {
-  title: 'Super Admin AI Setup - Helpa Studio',
+  title: 'AI Settings - Helpa Super Admin',
 };
 
 export default async function AdminAiPage() {

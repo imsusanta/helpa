@@ -3,25 +3,23 @@ import { LandingNavbar } from '@/components/landing/navbar';
 import { LandingHero } from '@/components/landing/hero';
 import { LandingFooter } from '@/components/landing/footer';
 
-const LandingInteractiveShowcase = dynamic(
+const LandingWhyBusinessesLoveUs = dynamic(
   () =>
-    import('@/components/landing/interactive-showcase').then(
-      (mod) => mod.LandingInteractiveShowcase
+    import('@/components/landing/why-businesses-love-us').then(
+      (mod) => mod.LandingWhyBusinessesLoveUs
     ),
   {
-    loading: () => (
-      <div className="min-h-[520px] bg-[#F1EEFA]" aria-hidden="true" />
-    ),
+    loading: () => <div className="min-h-[400px]" aria-hidden="true" />,
   }
 );
 
-const LandingIndustrySolutions = dynamic(
+const LandingHowItWorks = dynamic(
   () =>
-    import('@/components/landing/industry-solutions').then(
-      (mod) => mod.LandingIndustrySolutions
+    import('@/components/landing/how-it-works').then(
+      (mod) => mod.LandingHowItWorks
     ),
   {
-    loading: () => <div className="min-h-[300px]" aria-hidden="true" />,
+    loading: () => <div className="min-h-[400px]" aria-hidden="true" />,
   }
 );
 
@@ -102,8 +100,8 @@ export default function LandingPage() {
       <LandingNavbar />
       <main>
         <LandingHero isAuthenticated={false} />
-        <LandingInteractiveShowcase />
-        <LandingIndustrySolutions />
+        <LandingWhyBusinessesLoveUs />
+        <LandingHowItWorks />
         <LandingSecurityBadges />
         <LandingPricingSection />
         <LandingFaqSection />
