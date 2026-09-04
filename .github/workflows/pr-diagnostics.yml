@@ -1,0 +1,97 @@
+name: PR diagnostics
+
+on:
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  quality:
+    name: Diagnostic — quality errors
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - id: collect
+        shell: bash
+        run: |
+          set +e
+          : > /tmp/quality.log
+          echo '$ npm run format:check' | tee -a /tmp/quality.log
+          npm run format:check 2>&1 | tee -a /tmp/quality.log
+          format_status=${PIPESTATUS[0]}
+          echo '$ npm run lint' | tee -a /tmp/quality.log
+          npm run lint 2>&1 | tee -a /tmp/quality.log
+          lint_status=${PIPESTATUS[0]}
+          echo '$ npm run typecheck' | tee -a /tmp/quality.log
+          npm run typecheck 2>&1 | tee -a /tmp/quality.log
+          type_status=${PIPESTATUS[0]}
+          echo "format=$format_status lint=$lint_status typecheck=$type_status" | tee -a /tmp/quality.log
+          tail -n 120 /tmp/quality.log > /tmp/quality-tail.log
+      - name: Publish diagnostics
+        uses: actions/github-script@v8
+        with:
+          script: |
+            const fs = require('fs');
+            const log = fs.readFileSync('/tmp/quality-tail.log', 'utf8');
+            const marker = '<!-- quality-diagnostics -->';
+            const body = `${marker}\n### Quality diagnostics\n\n\`\`\`text\n${log}\n\`\`\``;
+            const comments = await github.paginate(github.rest.issues.listComments, {
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              per_page: 100,
+            });
+            const previous = comments.find((comment) => comment.body?.includes(marker));
+            if (previous) {
+              await github.rest.issues.updateComment({ owner: context.repo.owner, repo: context.repo.repo, comment_id: previous.id, body });
+            } else {
+              await github.rest.issues.createComment({ owner: context.repo.owner, repo: context.repo.repo, issue_number: context.issue.number, body });
+            }
+
+  audit:
+    name: Diagnostic — npm audit
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - id: collect
+        shell: bash
+        run: |
+          set +e
+          npm audit --audit-level=high 2>&1 | tee /tmp/audit.log
+          echo "status=${PIPESTATUS[0]}" >> "$GITHUB_OUTPUT"
+          tail -n 120 /tmp/audit.log > /tmp/audit-tail.log
+      - name: Publish diagnostics
+        uses: actions/github-script@v8
+        with:
+          script: |
+            const fs = require('fs');
+            const log = fs.readFileSync('/tmp/audit-tail.log', 'utf8');
+            const marker = '<!-- audit-diagnostics -->';
+            const body = `${marker}\n### npm audit diagnostics\n\n\`\`\`text\n${log}\n\`\`\``;
+            const comments = await github.paginate(github.rest.issues.listComments, {
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              per_page: 100,
+            });
+            const previous = comments.find((comment) => comment.body?.includes(marker));
+            if (previous) {
+              await github.rest.issues.updateComment({ owner: context.repo.owner, repo: context.repo.repo, comment_id: previous.id, body });
+            } else {
+              await github.rest.issues.createComment({ owner: context.repo.owner, repo: context.repo.repo, issue_number: context.issue.number, body });
+            }
