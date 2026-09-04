@@ -16,7 +16,7 @@ export default defineConfig({
       provider: 'v8',
       reporter: ['json', 'html', 'text'],
       // Ratcheted minimum thresholds for security-critical modules (roadmap P1).
-      // Thresholds remain explicit and must rise as focused tests are added.
+      // Values start ~5 points below measured coverage; raise as coverage grows.
       // Gaps still open (documented in 10-OUT-OF-10-ROADMAP.md): webhook route,
       // inbound persistence, process-status, tenant-resolver, outbox-service.
       thresholds: {
@@ -32,13 +32,11 @@ export default defineConfig({
           functions: 95,
           branches: 70,
         },
-        // Rebaselined after auth module growth. Raise this ratchet as the
-        // remaining account/admin/CSRF branches receive focused tests.
         'src/lib/auth/**': {
-          statements: 74,
-          lines: 74,
-          functions: 85,
-          branches: 63,
+          statements: 79,
+          lines: 79,
+          functions: 90,
+          branches: 68,
         },
         'src/lib/whatsapp/persist-outbound-message.ts': {
           statements: 72,
