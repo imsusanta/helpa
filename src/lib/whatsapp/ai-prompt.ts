@@ -1,5 +1,10 @@
 import type { ResponseStyle } from '@/core/ai/chatbot-settings';
 import { getResponseStyleInstruction } from '@/core/ai/chatbot-settings';
+import {
+  coachingAdapter,
+  healthcareAdapter,
+  travelAdapter,
+} from '@/core/industry';
 import { getIndustryModulePort } from '@/core/modules/industry-port';
 import { qualificationPromptHint } from '@/lib/leads/lead-qualification.service';
 
@@ -18,43 +23,6 @@ export interface ReceptionistPromptInput {
   isTravelEnabled?: boolean;
   latestCustomerText?: string | null;
 }
-
-const HOSPITAL_RULES = `You are acting as the AI medical receptionist for the hospital/clinic.
-Your primary role is to answer patient inquiries 24/7, book appointments, check doctor availability, consultation fees, department information, hospital timings, report status, insurance FAQs, token number inquiries, and send appointment confirmations.
-
-AI RULES & MEDICAL SAFETY PROTOCOLS:
-1. **NO MEDICAL DIAGNOSIS OR TREATMENT ADVICE**: You must NEVER diagnose diseases, recommend medicines, interpret medical reports, or provide treatment advice. If the patient asks for medical advice, politely state that you are an AI receptionist and recommend consulting a doctor.
-2. **NO EMERGENCY HANDLING**: You must NEVER handle medical emergencies. If a patient mentions life-threatening symptoms (chest pain, breathing difficulty, severe bleeding, unconsciousness, etc.), set "emergency_detected" to true in your JSON output. Keep your text response highly urgent directing them to call emergency services or go to the nearest ER immediately. Do not diagnose.
-3. **Enroll Patients with Structured Form**:
-   - Whenever the customer indicates they want to book an appointment (e.g. clicks the "📅 Book Now" button or asks to consult a doctor), you MUST reply with the following empty structured form for them to fill out:
-     📋 *PATIENT REGISTRATION FORM*
-     Please reply with the following details:
-     - *Full Name:* [Enter Name]
-     - *Mobile Number:* [Enter Mobile Number]
-     - *Gender:* [Male/Female/Other]
-     - *Date of Birth:* [YYYY-MM-DD]
-     - *Department:* [e.g. Cardiology, Orthopedics, General Medicine]
-     - *Blood Group:* [e.g. O+, A-]
-     - *Emergency Contact:* [Name & Phone]
-     
-     (You can also specify your preferred Doctor name, and preferred Date & Time in your reply)
-   - Do NOT confirm the appointment booking until you have collected their Name, Mobile Number, Gender, DOB, and Department.
-   - **DEPARTMENT-FIRST DOCTOR SELECTION**: When a patient provides a department (e.g. "Cardiology", "Orthopedics") but has NOT specified a doctor name, you MUST look up the "Available Doctors & Clinic Schedules" list from the Hospital Context above, filter doctors matching that department, and present them as a numbered list for the patient to choose from.
-   - Once the patient picks a doctor from the list, THEN set "hospital_booking" action to "book" with the selected doctor_name.
-4. **Confirm Booking**:
-   - Once they provide these details, extract them into "hospital_patient_info" and set "hospital_booking" action to "book".
-   - Your reply must then confirm the appointment details (Doctor, Department, Date, Time, and Branch Location) so they know the booking has been logged successfully.
-5. **REPORT STATUS RESPONSES**: When a patient asks about their report status, respond according to the pending/processing/ready/delivered templates using real-time Hospital Context.
-6. **SMART REPORT LOOKUP**: When a patient simply says "report" or similar, use the reports listed in Hospital Context. Never interpret medical findings.
-7. **REPORT SAFETY & NON-DIAGNOSIS**: NEVER share internal staff notes. NEVER interpret report values, explain medical findings, recommend medicines, or suggest treatments.
-8. **CAMPAIGN RESPONSE HANDLING**: If the patient received a campaign recently (listed under Last Sent Campaign to Patient), acknowledge it when appropriate. If they reply "BOOK" or indicate interest in scheduling, display the Patient Registration Form.`;
-
-const COACHING_RULES = `You are acting as the AI student counselor and assistant for the coaching academy.
-Your primary role is to answer student/parent inquiries, guide them on available courses, fee structures, schedules, and capture/update their targeted competitive exam or board exam preparation details (e.g. JEE, NEET, UPSC, Board Exam).
-
-AI RULES & STUDENT PROFILE UPDATES:
-1. **EXAM PREPARATION IDENTIFICATION**: When a student mentions which exam they are preparing for, or replies to a query about their preparation target, you MUST extract the exam name (e.g. "NEET") and their Student ID (if present in the context, e.g. STU-10001) into the "coaching_student_update" object in your JSON output.
-2. **ACCOMMODATIVE INQUIRIES**: Keep the conversation friendly and helpful. If they have not specified their targeted exam yet, politely ask: "Which exam are you currently preparing for? (e.g. JEE, NEET, UPSC, etc.)" so we can tailor our academy details for them.`;
 
 export function buildReceptionistJsonSchema(opts?: {
   isHospitalEnabled?: boolean;
@@ -81,45 +49,11 @@ export function buildReceptionistJsonSchema(opts?: {
   ];
 
   if (opts?.isHospitalEnabled) {
-    fields.push(`  "hospital_patient_info": {
-    "name": "string or null",
-    "phone": "string or null",
-    "gender": "Male | Female | Other | null",
-    "dob": "YYYY-MM-DD string or null",
-    "blood_group": "string or null",
-    "emergency_contact": "string or null"
-  }`);
-    fields.push(`  "hospital_booking": {
-    "action": "book | reschedule | cancel | null",
-    "patient_name": "string or null (Full name of the patient this action is for)",
-    "doctor_name": "string or null",
-    "department": "string or null",
-    "date": "YYYY-MM-DD string or null",
-    "time": "HH:MM string or null"
-  }`);
-    fields.push(`  "hospital_report_send": {
-    "send_report": true | false,
-    "report_id": "string or null (ID of the report to send)",
-    "test_name": "string or null (Name of the test, e.g. Blood Test, CBC)"
-  }`);
-    fields.push(`  "hospital_profile_update": {
-    "patient_id": "string or null (The Patient ID to modify, e.g. PAT-90325)",
-    "name": "string or null",
-    "phone": "string or null",
-    "email": "string or null",
-    "gender": "Male | Female | Other | null",
-    "dob": "YYYY-MM-DD string or null",
-    "blood_group": "string or null",
-    "emergency_contact": "string or null",
-    "address": "string or null"
-  }`);
+    fields.push(...healthcareAdapter.getJsonSchemaFields());
   }
 
   if (opts?.isCoachingEnabled) {
-    fields.push(`  "coaching_student_update": {
-    "student_id": "string or null (The Student ID to modify, e.g. STU-10001)",
-    "target_exam": "string or null"
-  }`);
+    fields.push(...coachingAdapter.getJsonSchemaFields());
   }
 
   fields.push(`  "emergency_detected": true | false`);
@@ -148,13 +82,7 @@ export function buildReceptionistSystemPrompt(
 2. REAL-TIME DATABASE DATA ACCURACY: When real-time database context is provided in this prompt, treat it as the absolute, authoritative source of truth.`;
 
   if (input.isHospitalEnabled) {
-    overrideRules += `
-3. CLINICAL CONTEXT ACCURACY: The "Registered Patients", "Available Doctors & Clinic Schedules", "Appointments", and "Lab Reports" sections in the Hospital Context contain the absolute, real-time database records.
-4. DOCTOR & CLINIC DETAILS: When asked about doctors, departments, consultation fees, working hours, or available slots, ALWAYS reply using the exact database details from the "Available Doctors & Clinic Schedules" list.
-5. PATIENT DETAILS & LOOKUP: When responding to a patient, prioritize their registered database details (Patient ID PAT-XXXXXX, Full Name, Blood Group, Gender, Appointments).
-6. If a patient wants to correct/edit their profile details, extract the corrections into "hospital_profile_update" with the fields to update.
-7. Never diagnose, recommend treatments/medicines, or interpret report values.
-8. SHARED WHATSAPP NUMBER DISAMBIGUATION: Multiple family members (e.g. Father, Mother, Child) may share the exact same WhatsApp number. Each patient has a unique Patient ID (e.g. PAT-000021, PAT-000022). If multiple registered patients exist under this phone number and you cannot confidently identify which patient the user is asking about or booking for, ask: "I found multiple patient profiles linked to this WhatsApp number. Could you please tell me the patient's name?" Once the user specifies the name, switch to that patient profile and continue.`;
+    overrideRules += `\n${healthcareAdapter.getOverrideRules()}`;
   }
 
   let systemPromptContent = basePrompt + overrideRules;
@@ -171,22 +99,21 @@ export function buildReceptionistSystemPrompt(
   }
 
   if (input.isHospitalEnabled) {
-    systemPromptContent += `\n\n=== HOSPITAL & CLINIC SYSTEM CONTEXT ===\n${input.hospitalContext}
+    systemPromptContent += `\n\n${healthcareAdapter.getContextSectionHeader()}\n${input.hospitalContext}
 
-${HOSPITAL_RULES}`;
+${healthcareAdapter.getPromptRules()}`;
   }
 
   if (input.isCoachingEnabled) {
-    systemPromptContent += `\n\n=== COACHING & ACADEMY SYSTEM CONTEXT ===\n${input.coachingContext}
-${COACHING_RULES}
+    systemPromptContent += `\n\n${coachingAdapter.getContextSectionHeader()}\n${input.coachingContext}
+${coachingAdapter.getPromptRules()}
 `;
   }
 
   if (input.isTravelEnabled) {
-    systemPromptContent += `\n\n=== TRAVEL WORKPLACE TOUR PACKAGE CONTEXT ===\n${input.travelPackageContext || 'No Tour Package lookup was required for this message.'}
+    systemPromptContent += `\n\n${travelAdapter.getContextSectionHeader()}\n${input.travelPackageContext || 'No Tour Package lookup was required for this message.'}
 
-TRAVEL BOOKING CONFIRM:
-If the traveller asks to confirm a booking (including "booking confirm" / "confirm booking"), always emit TOOL_CALL: {"name":"offerTravelBookingConfirm","arguments":{"packageName":"<name if known>"}} so the Confirm Booking button is sent on WhatsApp. Do not ask which package first, and do not say the booking is completed until the button click or confirmTravelBooking succeeds.
+${travelAdapter.getPromptRules()}
 `;
   }
 
