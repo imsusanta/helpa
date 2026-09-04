@@ -55,6 +55,61 @@ export class OutboxService {
     const now = new Date().toISOString();
     const correlationId = payload.correlationId || crypto.randomUUID();
 
+    // 0. Primary Transactional Outbox: atomic enqueue in public.whatsapp_outbox + messages
+    if (
+      payload.conversationId &&
+      typeof (dbAdmin as unknown as { rpc?: unknown }).rpc === 'function'
+    ) {
+      try {
+        const { data: rpcData, error: rpcError } = await dbAdmin.rpc(
+          'enqueue_whatsapp_outbound_message',
+          {
+            p_account_id: payload.accountId,
+            p_conversation_id: payload.conversationId,
+            p_idempotency_key: payload.idempotencyKey,
+            p_provider: payload.provider || 'meta',
+            p_content_type: payload.messageType || 'text',
+            p_content_text: payload.messageSnapshot?.contentText ?? null,
+            p_sender_type: payload.messageSnapshot?.senderId ? 'agent' : 'bot',
+            p_media_url: payload.messageSnapshot?.mediaUrl ?? null,
+            p_max_attempts: 8,
+            p_payload: {
+              requestHash: payload.requestHash,
+              channel: payload.channel || 'whatsapp',
+              correlationId,
+              messageSnapshot: payload.messageSnapshot || null,
+            },
+          }
+        );
+
+        if (!rpcError && rpcData && typeof rpcData === 'object') {
+          const res = rpcData as Record<string, unknown>;
+          if (res.ok) {
+            if (res.duplicate) {
+              return {
+                ok: true,
+                status: 'existing',
+                outboxId: String(res.outbox_id || ''),
+                existingStatus: String(res.status || 'processing'),
+                providerMessageId: res.provider_message_id
+                  ? String(res.provider_message_id)
+                  : undefined,
+                requestHashMatches: true,
+              };
+            }
+            return {
+              ok: true,
+              status: 'created',
+              outboxId: String(res.outbox_id || ''),
+              requestHashMatches: true,
+            };
+          }
+        }
+      } catch {
+        // Fall back to outbound_outbox legacy path
+      }
+    }
+
     // 1. Check if an existing outbox record already exists for (accountId, idempotencyKey)
     let existingDoc: Record<string, unknown> | null = null;
     try {
@@ -263,6 +318,19 @@ export class OutboxService {
     const dbAdmin = getAdminClient();
     const now = new Date().toISOString();
     try {
+      await dbAdmin
+        .from('whatsapp_outbox')
+        .update({
+          status: 'sent',
+          provider_message_id: providerMessageId,
+          sent_at: now,
+          updated_at: now,
+        })
+        .eq('id', outboxId)
+        .eq('account_id', accountId);
+    } catch {}
+
+    try {
       const res = await dbAdmin
         .from('outbound_outbox')
         .update({
@@ -305,6 +373,19 @@ export class OutboxService {
     const dbAdmin = getAdminClient();
     const now = new Date().toISOString();
     try {
+      await dbAdmin
+        .from('whatsapp_outbox')
+        .update({
+          status: 'reconciliation_required',
+          provider_message_id: providerMessageId,
+          last_error_message: dbErrorMessage.slice(0, 255),
+          updated_at: now,
+        })
+        .eq('id', outboxId)
+        .eq('account_id', accountId);
+    } catch {}
+
+    try {
       const res = await dbAdmin
         .from('outbound_outbox')
         .update({
@@ -345,6 +426,19 @@ export class OutboxService {
   ): Promise<void> {
     const dbAdmin = getAdminClient();
     const now = new Date().toISOString();
+    try {
+      await dbAdmin
+        .from('whatsapp_outbox')
+        .update({
+          status: 'dead_letter',
+          dead_lettered_at: now,
+          last_error_message: errorMessage.slice(0, 255),
+          updated_at: now,
+        })
+        .eq('id', outboxId)
+        .eq('account_id', accountId);
+    } catch {}
+
     try {
       const res = await dbAdmin
         .from('outbound_outbox')
