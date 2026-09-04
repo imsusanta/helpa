@@ -101,7 +101,7 @@ jobs:
   security_supply_chain:
     name: Secrets and dependency security
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
         with:
