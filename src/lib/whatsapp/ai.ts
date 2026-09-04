@@ -23,7 +23,6 @@ import {
   unansweredCustomerTurn,
   shouldSkipAiConversation,
   unwrapNestedReply,
-  type HistoryMessage,
 } from '@/lib/whatsapp/ai-pipeline';
 import {
   buildIndustryAiContext,
@@ -42,6 +41,7 @@ import {
   executeAiCompletionWithFallback,
   resolveAccountAiConfig,
 } from '@/core/ai/resolver';
+import { getConversationsRepository } from '@/core/repositories/conversations';
 
 interface TriggerAiResponseArgs {
   accountId: string;
@@ -74,9 +74,10 @@ export async function triggerAiResponse(
   }
 
   const db = getAdminClient();
+  const conversationRepo = getConversationsRepository({ accountId });
 
   // ═══════ PHASE 1: Parallel fetch all independent data in one shot ═══════
-  const [contactRes, accRes, convRes, messagesRes, kbRes] = await Promise.all([
+  const [contactRes, accRes, convContext, kbRes] = await Promise.all([
     db
       .from('contacts')
       .select('*')
@@ -90,28 +91,19 @@ export async function triggerAiResponse(
       )
       .eq('id', accountId)
       .single(),
-    db
-      .from('conversations')
-      .select('*')
-      .eq('id', conversationId)
-      .eq('account_id', accountId)
-      .maybeSingle(),
-    db
-      .from('messages')
-      .select(
-        'id, sender_type, content_type, content_text, created_at, reply_to_message_id'
-      )
-      .eq('conversation_id', conversationId)
-      .eq('account_id', accountId)
-      .order('created_at', { ascending: false })
-      .limit(15),
+    conversationRepo.loadConversationContext(conversationId, {
+      inboundMessageId,
+    }),
     db
       .from('knowledge_base')
       .select('category, question_title, answer_content')
       .eq('account_id', accountId),
   ]);
 
-  const conversation = convRes.data as Record<string, unknown> | null;
+  const conversation = convContext.conversation as Record<
+    string,
+    unknown
+  > | null;
   if (!conversation) {
     console.warn(
       '[AI Assistant] Conversation is missing or belongs to another workspace. Skipping AI response.'
@@ -122,7 +114,7 @@ export async function triggerAiResponse(
   // Auto-resume check: If AI is disabled (e.g. following a human handoff) and
   // the conversation is unassigned, check if the last activity was > 30 minutes ago.
   // If staff has been inactive for > 30 minutes, automatically resume AI auto-pilot.
-  const fetchedMessages = (messagesRes.data ?? []) as HistoryMessage[];
+  const fetchedMessages = convContext.messages;
   const HANDOFF_AUTO_RESUME_MS = 30 * 60 * 1000;
   const isAssigned = Boolean(
     conversation.assigned_agent_id || conversation.assignedAgentId
@@ -262,44 +254,12 @@ export async function triggerAiResponse(
     return;
   }
 
-  // 3. Normalize pre-fetched messages with fallback if empty or error
-  let rawMessages = messagesRes.data as Array<Record<string, unknown>> | null;
-  const msgError = messagesRes.error;
-
-  if (msgError || !rawMessages || rawMessages.length === 0) {
-    try {
-      const fallbackMsg = await db
-        .from('messages')
-        .select('*')
-        .eq('conversation_id', conversationId)
-        .eq('account_id', accountId)
-        .order('created_at', { ascending: false })
-        .limit(50);
-      if (fallbackMsg.data && fallbackMsg.data.length > 0) {
-        rawMessages = fallbackMsg.data as Array<Record<string, unknown>>;
-      }
-    } catch {
-      // ignore
-    }
-  }
-
-  const mapHistoryMessage = (m: Record<string, unknown>): HistoryMessage => ({
-    id: String(m.id || ''),
-    sender_type: String(m.sender_type || m.senderType || 'customer'),
-    content_type: String(m.content_type || m.contentType || 'text'),
-    content_text: String(m.content_text || m.contentText || ''),
-    created_at: String(m.created_at || m.createdAt || new Date().toISOString()),
-    reply_to_message_id: String(
-      m.reply_to_message_id || m.replyToMessageId || ''
-    ),
-  });
-
-  const messages = (rawMessages || []).map(mapHistoryMessage);
+  // 3. Message history loaded via tenant-scoped repository
+  const messages = [...convContext.messages];
 
   if (messages.length === 0 && !inboundMessageId) {
     console.error(
-      '[AI Assistant] Failed to fetch message history or no messages found:',
-      msgError
+      '[AI Assistant] Failed to fetch message history or no messages found'
     );
     return;
   }
@@ -307,27 +267,10 @@ export async function triggerAiResponse(
   let turn = unansweredCustomerTurn(messages, inboundMessageId);
   if (turn.missingInbound && inboundMessageId) {
     try {
-      let inboundRow: Record<string, unknown> | null = null;
-      const byId = await db
-        .from('messages')
-        .select(
-          'id, sender_type, content_type, content_text, created_at, reply_to_message_id'
-        )
-        .eq('id', inboundMessageId)
-        .eq('account_id', accountId)
-        .maybeSingle();
-      if (byId.data) inboundRow = byId.data as Record<string, unknown>;
-      if (!inboundRow) {
-        const byStar = await db
-          .from('messages')
-          .select('*')
-          .eq('id', inboundMessageId)
-          .eq('account_id', accountId)
-          .maybeSingle();
-        if (byStar.data) inboundRow = byStar.data as Record<string, unknown>;
-      }
-      if (inboundRow) {
-        messages.unshift(mapHistoryMessage(inboundRow));
+      const inboundMsg =
+        await conversationRepo.getMessageById(inboundMessageId);
+      if (inboundMsg) {
+        messages.unshift(inboundMsg);
         turn = unansweredCustomerTurn(messages, inboundMessageId);
       }
     } catch {
