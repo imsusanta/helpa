@@ -16,7 +16,8 @@ function sourceFiles(directory: string): string[] {
 
 function importedModules(source: string): string[] {
   const modules: string[] = [];
-  const pattern = /(?:import|export)\s+(?:[\s\S]*?\s+from\s+)?['"]([^'"]+)['"]|require\(\s*['"]([^'"]+)['"]\s*\)/g;
+  const pattern =
+    /(?:import|export)\s+(?:[\s\S]*?\s+from\s+)?['"]([^'"]+)['"]|require\(\s*['"]([^'"]+)['"]\s*\)/g;
   let match: RegExpExecArray | null;
   while ((match = pattern.exec(source)) !== null) {
     modules.push(match[1] || match[2]);
