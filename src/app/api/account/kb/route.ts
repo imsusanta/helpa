@@ -33,7 +33,7 @@ export async function GET() {
 
     let rows: Array<Record<string, unknown>> = [];
     try {
-      const { data, error } = await ctx.appwrite
+      const { data, error } = await ctx.admin
         .from('knowledge_base')
         .select('*')
         .eq('account_id', ctx.accountId);
@@ -108,7 +108,7 @@ export async function POST(request: Request) {
       );
     }
 
-    const { data, error } = await ctx.appwrite
+    const { data, error } = await ctx.admin
       .from('knowledge_base')
       .insert({
         account_id: ctx.accountId,
@@ -202,7 +202,7 @@ export async function PATCH(request: Request) {
       updates.answer_content = answer_content.trim();
     }
 
-    const { data, error } = await ctx.appwrite
+    const { data, error } = await ctx.admin
       .from('knowledge_base')
       .update(updates)
       .eq('id', id)
@@ -249,7 +249,7 @@ export async function DELETE(request: Request) {
       );
     }
 
-    const { error } = await ctx.appwrite
+    const { error } = await ctx.admin
       .from('knowledge_base')
       .delete()
       .eq('id', id)

@@ -27,7 +27,7 @@
  * warning so operators can investigate.
  */
 
-import type { AppwriteClient } from '@/lib/db/client';
+import type { DbClient } from '@/lib/db/client';
 import { normalizeStatus } from './template-status-normalize';
 
 const TEMPLATE_WEBHOOK_FIELDS = new Set([
@@ -75,23 +75,15 @@ export interface TemplateWebhookChange {
  */
 export async function handleTemplateWebhookChange(
   change: TemplateWebhookChange,
-  // AppwriteClient typed loosely — the webhook route lazy-initialises
-  // the admin client and exposes it as `any`. Type as the generic
-  // AppwriteClient here so this module is testable in isolation.
-  appwrite: AppwriteClient
+  // DbClient typed for the admin database client.
+  db: DbClient
 ): Promise<void> {
   switch (change.field) {
     case 'message_template_status_update':
-      await handleStatusUpdate(
-        change.value as TemplateStatusUpdateValue,
-        appwrite
-      );
+      await handleStatusUpdate(change.value as TemplateStatusUpdateValue, db);
       return;
     case 'message_template_quality_update':
-      await handleQualityUpdate(
-        change.value as TemplateQualityUpdateValue,
-        appwrite
-      );
+      await handleQualityUpdate(change.value as TemplateQualityUpdateValue, db);
       return;
     case 'message_template_components_update':
       handleComponentsUpdate(change.value as TemplateComponentsUpdateValue);
@@ -101,7 +93,7 @@ export async function handleTemplateWebhookChange(
 
 async function handleStatusUpdate(
   value: TemplateStatusUpdateValue,
-  appwrite: AppwriteClient
+  db: DbClient
 ): Promise<void> {
   const metaTemplateId =
     value.message_template_id !== undefined
@@ -128,7 +120,7 @@ async function handleStatusUpdate(
     submission_error: null,
   };
 
-  const { data, error } = await appwrite
+  const { data, error } = await db
     .from('message_templates')
     .update(update)
     .eq('meta_template_id', metaTemplateId)
@@ -159,7 +151,7 @@ async function handleStatusUpdate(
 
 async function handleQualityUpdate(
   value: TemplateQualityUpdateValue,
-  appwrite: AppwriteClient
+  db: DbClient
 ): Promise<void> {
   const metaTemplateId =
     value.message_template_id !== undefined
@@ -179,7 +171,7 @@ async function handleQualityUpdate(
       ? (raw.toUpperCase() as 'GREEN' | 'YELLOW' | 'RED')
       : null;
 
-  const { error } = await appwrite
+  const { error } = await db
     .from('message_templates')
     .update({ quality_score: score })
     .eq('meta_template_id', metaTemplateId);

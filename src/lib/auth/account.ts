@@ -59,8 +59,8 @@ export interface AccountContext {
   account: { id: string; name: string; industry: string };
   /** Service-role database client for this request. Always set. */
   admin: AdminClient;
-  /** @deprecated Use `admin`. Alias kept for remaining ctx.appwrite call sites. */
-  appwrite: AdminClient;
+  /** @deprecated Use `admin`. Alias kept for backward-compatibility. */
+  appwrite?: AdminClient;
 }
 
 // The compatibility client is typed as any during the incremental migration,

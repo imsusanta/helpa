@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import type { AppwriteClient } from '@/lib/db/client';
+import type { DbClient } from '@/lib/db/client';
 import {
   dedupeByPhone,
   findExistingContact,
@@ -67,15 +67,15 @@ describe('dedupeByPhone', () => {
 });
 
 describe('findExistingContact', () => {
-  // Minimal AppwriteClient stub: resolves the .from().select().eq().like()
+  // Minimal DbClient stub: resolves the .from().select().eq().like()
   // chain to a fixed candidate set.
-  function stubDb(rows: Array<{ id: string; phone: string }>): AppwriteClient {
+  function stubDb(rows: Array<{ id: string; phone: string }>): DbClient {
     const builder = {
       select: () => builder,
       eq: () => builder,
       like: () => Promise.resolve({ data: rows, error: null }),
     };
-    return { from: () => builder } as unknown as AppwriteClient;
+    return { from: () => builder } as unknown as DbClient;
   }
 
   it('returns a trunk-variant match via phonesMatch', async () => {
@@ -124,7 +124,7 @@ describe('findExistingContact', () => {
         builder.filters = [];
         return builder;
       },
-    } as unknown as AppwriteClient;
+    } as unknown as DbClient;
 
     const hit = await findExistingContact(db, 'acct', '+1 412 345 67890');
     expect(hit?.id).toBe('exact');

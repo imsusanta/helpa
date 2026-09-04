@@ -1,6 +1,6 @@
-export type AuthProvider = 'supabase' | 'appwrite';
-export type DatabaseProvider = 'supabase' | 'appwrite';
-export type MigrationMode = 'off' | 'shadow' | 'cutover' | 'rollback';
+export type AuthProvider = 'supabase';
+export type DatabaseProvider = 'supabase';
+export type MigrationMode = 'cutover';
 
 export interface RuntimeConfig {
   authProvider: AuthProvider;

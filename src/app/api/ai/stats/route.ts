@@ -10,13 +10,13 @@ import { getAccountChatbotSettings } from '@/core/ai/chatbot-settings';
  * AI request usage comes from the SaaS usage tracker (usage_tracking) via the
  * plan-limits helper, and the entry/conversation figures are live COUNT(*)
  * queries scoped to the authenticated account. There are no placeholder or
- * hard-coded statistics. `ctx.appwrite` is the service-role client, so every
+ * hard-coded statistics. `ctx.admin` is the service-role client, so every
  * query is explicitly constrained to `account_id = ctx.accountId`.
  */
 export async function GET() {
   try {
     const ctx = await requireRole('viewer');
-    const db = ctx.appwrite;
+    const db = ctx.admin;
     const accountId = ctx.accountId;
 
     if (!db) {

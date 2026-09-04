@@ -1,7 +1,6 @@
 export function validateCsrfHeader(request: Request): boolean {
   // Webhooks, API keys, or non-browser/header authenticated calls are exempt
   const authHeader = request.headers.get('authorization');
-  const apiKeyHeader = request.headers.get('x-appwrite-key');
   const webhookSig =
     request.headers.get('x-hub-signature-256') ||
     request.headers.get('x-waha-signature') ||
@@ -9,7 +8,7 @@ export function validateCsrfHeader(request: Request): boolean {
     request.headers.get('calendly-webhook-signature') ||
     request.headers.get('x-elevenlabs-signature');
 
-  if (authHeader || apiKeyHeader || webhookSig) {
+  if (authHeader || webhookSig) {
     return true;
   }
 

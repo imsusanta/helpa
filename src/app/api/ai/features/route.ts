@@ -17,9 +17,9 @@ export async function POST(request: Request) {
     // invoke them. account_members is the canonical membership source, and
     // requireRole resolves the effective account role from it.
     const ctx = await requireRole('agent');
-    const appwrite = ctx.appwrite;
+    const db = ctx.admin;
 
-    if (!appwrite) {
+    if (!db) {
       throw new Error('Account data client is unavailable.');
     }
 
@@ -69,7 +69,7 @@ export async function POST(request: Request) {
     }
 
     // Fetch account settings
-    const { data: account } = await appwrite
+    const { data: account } = await db
       .from('accounts')
       .select('ai_system_prompt, industry')
       .eq('id', accountId)
@@ -85,7 +85,7 @@ export async function POST(request: Request) {
       }
 
       // Check if conversation belongs to account
-      const { data: conversation, error: convError } = await appwrite
+      const { data: conversation, error: convError } = await db
         .from('conversations')
         .select('account_id')
         .eq('id', conversationId)
@@ -99,7 +99,7 @@ export async function POST(request: Request) {
       }
 
       // Fetch Knowledge Base
-      const { data: kbEntries } = await appwrite
+      const { data: kbEntries } = await db
         .from('knowledge_base')
         .select('question_title, answer_content, category')
         .eq('account_id', accountId);
@@ -117,7 +117,7 @@ export async function POST(request: Request) {
       }
 
       // Fetch conversation context (latest 15 messages)
-      const { data: messages, error: msgError } = await appwrite
+      const { data: messages, error: msgError } = await db
         .from('messages')
         .select('sender_type, content_type, content_text, created_at')
         .eq('conversation_id', conversationId)
@@ -290,7 +290,7 @@ Text to translate:
       }
 
       // Verify the conversation belongs to the authenticated account.
-      const { data: conversation, error: convError } = await appwrite
+      const { data: conversation, error: convError } = await db
         .from('conversations')
         .select('account_id')
         .eq('id', conversationId)
@@ -303,7 +303,7 @@ Text to translate:
         );
       }
 
-      const { data: messages, error: msgError } = await appwrite
+      const { data: messages, error: msgError } = await db
         .from('messages')
         .select('sender_type, content_type, content_text, created_at')
         .eq('conversation_id', conversationId)

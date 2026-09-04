@@ -37,13 +37,13 @@ export async function DELETE(
 
     const { id } = await params;
 
-    // `ctx.appwrite` is the service-role client, which bypasses RLS —
+    // `ctx.admin` is the service-role client, which bypasses RLS —
     // so the tenant filter must be applied explicitly here. Without it
     // an admin of any account could revoke another tenant's invitation
     // by guessing its id. A cross-account attempt now surfaces as a
     // silent 0-row delete (which is exactly what we want for a
     // revocation endpoint).
-    const { error, count } = await ctx.appwrite
+    const { error, count } = await ctx.admin
       .from('account_invitations')
       .delete({ count: 'exact' })
       .eq('id', id)

@@ -1,7 +1,7 @@
 import { describe, it, expect, vi } from 'vitest';
 import { createClient } from '@/lib/db/client';
 
-// Construct simulated Appwrite Auth client contexts representing Tenant A and Tenant B
+// Construct simulated Auth client contexts representing Tenant A and Tenant B
 function createTenantClient(
   _accountId: string,
   _role: string = 'authenticated'
