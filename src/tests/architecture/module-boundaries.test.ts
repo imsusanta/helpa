@@ -20,7 +20,8 @@ function importedModules(source: string): string[] {
     /(?:import|export)\s+(?:[\s\S]*?\s+from\s+)?['"]([^'"]+)['"]|require\(\s*['"]([^'"]+)['"]\s*\)/g;
   let match: RegExpExecArray | null;
   while ((match = pattern.exec(source)) !== null) {
-    modules.push(match[1] || match[2]);
+    const moduleName = match[1] ?? match[2];
+    if (moduleName) modules.push(moduleName);
   }
   return modules;
 }
