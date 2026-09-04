@@ -114,14 +114,25 @@ jobs:
   security_dependency_audit:
     name: Dependency security audit
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
           node-version: 22
       - name: Block high-severity dependency vulnerabilities
-        run: npm audit --audit-level=high
+        shell: bash
+        run: |
+          for attempt in 1 2 3; do
+            if npm audit --audit-level=high; then
+              exit 0
+            fi
+            if [ "$attempt" -lt 3 ]; then
+              echo "npm audit attempt $attempt failed; retrying in 15 seconds..."
+              sleep 15
+            fi
+          done
+          exit 1
 
   security_supply_chain:
     name: Secrets and dependency security
