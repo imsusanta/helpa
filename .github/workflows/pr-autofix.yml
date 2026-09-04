@@ -4,7 +4,9 @@ on:
   pull_request:
     branches: [main]
 
-group: pr-autofix-${{ github.event.pull_request.number }}
+concurrency:
+  group: pr-autofix-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
 
 permissions:
   contents: write
@@ -36,8 +38,7 @@ jobs:
           hero.write_text(text)
 
           industry = Path('src/components/landing/industry-solutions.tsx')
-          text = industry.read_text().replace('CheckCircle2, ', '')
-          industry.write_text(text)
+          industry.write_text(industry.read_text().replace('CheckCircle2, ', ''))
           PY
           npm run format
           npm audit fix --package-lock-only
