@@ -18,7 +18,7 @@
 // ============================================================
 
 import { NextResponse } from 'next/server';
-import type { AppwriteError } from '@/lib/db/server';
+import type { DbError } from '@/lib/db/server';
 
 import { hashInviteToken } from '@/lib/auth/invitations';
 import {
@@ -36,7 +36,7 @@ function getClientIp(request: Request): string {
   return 'unknown';
 }
 
-function rpcErrorToResponse(err: AppwriteError): NextResponse {
+function rpcErrorToResponse(err: DbError): NextResponse {
   if (err.code === '42501') {
     return NextResponse.json({ error: err.message }, { status: 401 });
   }
@@ -72,19 +72,19 @@ export async function POST(
     );
   }
 
-  const appwrite = await createClient();
+  const supabase = await createClient();
 
   // The RPC checks `auth.uid()` itself, but failing fast here
-  // gives a cleaner 401 without a appwrite round trip on the
+  // gives a cleaner 401 without a database round trip on the
   // common "user clicked the link before logging in" path.
   const {
     data: { user },
-  } = await appwrite.auth.getUser();
+  } = await supabase.auth.getUser();
   if (!user) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
-  const { data: accountId, error } = await appwrite.rpc('redeem_invitation', {
+  const { data: accountId, error } = await supabase.rpc('redeem_invitation', {
     p_token_hash: hashInviteToken(token),
   });
 

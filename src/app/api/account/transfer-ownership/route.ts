@@ -19,7 +19,7 @@
 // ============================================================
 
 import { NextResponse } from 'next/server';
-import type { AppwriteError } from '@/lib/db/server';
+import type { DbError } from '@/lib/db/server';
 
 import { requireRole, toErrorResponse } from '@/lib/auth/account';
 import {
@@ -28,7 +28,7 @@ import {
   RATE_LIMITS,
 } from '@/lib/rate-limit';
 
-function rpcErrorToResponse(err: AppwriteError): NextResponse {
+function rpcErrorToResponse(err: DbError): NextResponse {
   if (err.code === '42501') {
     return NextResponse.json({ error: err.message }, { status: 403 });
   }
@@ -81,7 +81,7 @@ export async function POST(request: Request) {
       );
     }
 
-    const { error } = await ctx.appwrite.rpc('transfer_account_ownership', {
+    const { error } = await ctx.admin.rpc('transfer_account_ownership', {
       p_new_owner_user_id: newOwnerUserId,
     });
 

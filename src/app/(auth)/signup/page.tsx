@@ -111,14 +111,6 @@ function SignupPageInner() {
         return;
       }
 
-      if (data.sessionSecret && typeof window !== 'undefined') {
-        try {
-          window.localStorage.setItem('appwrite_session', data.sessionSecret);
-        } catch {
-          // ignore storage errors
-        }
-      }
-
       if (data.redirect === '/dashboard') {
         router.refresh();
         if (inviteToken) {

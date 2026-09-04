@@ -15,7 +15,7 @@
 // ============================================================
 
 import { NextResponse } from 'next/server';
-import type { AppwriteError } from '@/lib/db/server';
+import type { DbError } from '@/lib/db/server';
 
 import { requireRole, toErrorResponse } from '@/lib/auth/account';
 import { isAccountRole } from '@/lib/auth/roles';
@@ -28,7 +28,7 @@ import {
 // Map known SQLSTATEs from the RPCs (see migration 018) onto HTTP
 // statuses. The `error.code` field is the SQLSTATE; the `message`
 // is the human-readable RAISE message we put in the migration.
-function rpcErrorToResponse(err: AppwriteError): NextResponse {
+function rpcErrorToResponse(err: DbError): NextResponse {
   if (err.code === '42501') {
     return NextResponse.json({ error: err.message }, { status: 403 });
   }
@@ -81,7 +81,7 @@ export async function PATCH(
       );
     }
 
-    const { error } = await ctx.appwrite.rpc('set_member_role', {
+    const { error } = await ctx.admin.rpc('set_member_role', {
       p_user_id: userId,
       p_new_role: role,
     });
@@ -109,7 +109,7 @@ export async function DELETE(
 
     const { userId } = await params;
 
-    const { data, error } = await ctx.appwrite.rpc('remove_account_member', {
+    const { data, error } = await ctx.admin.rpc('remove_account_member', {
       p_user_id: userId,
     });
 

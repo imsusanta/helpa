@@ -8,13 +8,13 @@ import { checkPlanLimits } from '@/lib/saas/subscription';
  * SECURITY: viewer+ can read. Both figures are REAL COUNT(*) queries scoped to
  * the authenticated account (total automations, and active ones). The plan
  * limit comes from the SaaS plan-limits helper. No fabricated values.
- * `ctx.appwrite` is the service-role client, so every query is explicitly
+ * `ctx.admin` is the service-role client, so every query is explicitly
  * constrained to `account_id = ctx.accountId`.
  */
 export async function GET() {
   try {
     const ctx = await requireRole('viewer');
-    const db = ctx.appwrite;
+    const db = ctx.admin;
     const accountId = ctx.accountId;
 
     if (!db) {

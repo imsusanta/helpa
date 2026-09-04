@@ -67,7 +67,6 @@ describe('pdf-signing', () => {
 
   it('fails closed when the dedicated signing key is missing', () => {
     const originalPdfKey = process.env.PDF_SIGNING_KEY;
-    const originalAppwriteKey = process.env.APPWRITE_API_KEY;
     const expiresAt = Math.floor(Date.now() / 1000) + 3600;
     const token = generatePdfToken({
       appointmentId: APPOINTMENT_ID,
@@ -77,7 +76,6 @@ describe('pdf-signing', () => {
 
     try {
       delete process.env.PDF_SIGNING_KEY;
-      delete process.env.APPWRITE_API_KEY;
 
       expect(() =>
         generatePdfToken({
@@ -92,7 +90,6 @@ describe('pdf-signing', () => {
       });
     } finally {
       process.env.PDF_SIGNING_KEY = originalPdfKey;
-      process.env.APPWRITE_API_KEY = originalAppwriteKey;
     }
   });
 });

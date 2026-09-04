@@ -1,4 +1,4 @@
-import type { AppwriteClient } from '@/lib/db/client';
+import type { DbClient } from '@/lib/db/client';
 
 const DEFAULT_TAG_COLOR = '#3b82f6';
 
@@ -19,7 +19,7 @@ export interface ResolveImportTagsResult {
  * auto-create missing tag definitions for admin+ callers.
  */
 export async function resolveImportTagIds(
-  appwrite: AppwriteClient,
+  db: DbClient,
   params: {
     accountId: string;
     userId: string;
@@ -46,7 +46,7 @@ export async function resolveImportTagIds(
     return { tagIdByKey: new Map(), skippedNames: [] };
   }
 
-  const { data: existing, error: fetchError } = await appwrite
+  const { data: existing, error: fetchError } = await db
     .from('tags')
     .select('id, name')
     .eq('account_id', accountId);
@@ -70,7 +70,7 @@ export async function resolveImportTagIds(
   }
 
   if (toCreate.length > 0) {
-    const { data: created, error: createError } = await appwrite
+    const { data: created, error: createError } = await db
       .from('tags')
       .insert(
         toCreate.map((name) => ({
@@ -105,7 +105,7 @@ export interface ContactTagAssignment {
  * exist without changing the returned count.
  */
 export async function assignImportedContactTags(
-  appwrite: AppwriteClient,
+  db: DbClient,
   assignments: ContactTagAssignment[],
   tagIdByKey: Map<string, string>
 ): Promise<number> {
@@ -128,7 +128,7 @@ export async function assignImportedContactTags(
 
   for (let i = 0; i < rows.length; i += chunkSize) {
     const chunk = rows.slice(i, i + chunkSize);
-    const { error } = await appwrite.from('contact_tags').upsert(chunk, {
+    const { error } = await db.from('contact_tags').upsert(chunk, {
       onConflict: 'contact_id,tag_id',
       ignoreDuplicates: true,
     });

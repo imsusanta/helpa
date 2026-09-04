@@ -1,4 +1,4 @@
-import type { AppwriteClient } from '@/lib/db/client';
+import type { DbClient } from '@/lib/db/client';
 import { normalizePhone, phonesMatch } from '@/lib/whatsapp/phone-utils';
 
 /**
@@ -33,7 +33,7 @@ export interface ExistingContact {
  * prefix, but it is never allowed to outrank an exact match.
  */
 export async function findExistingContact(
-  db: AppwriteClient,
+  db: DbClient,
   accountId: string,
   phone: string
 ): Promise<ExistingContact | null> {

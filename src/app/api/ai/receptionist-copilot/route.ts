@@ -63,15 +63,14 @@ async function loadCopilotContext(
   ctx: Awaited<ReturnType<typeof requireRole>>,
   conversationId: string
 ): Promise<CopilotSourceContext | NextResponse> {
-  const { data: conversationData, error: conversationError } =
-    await ctx.appwrite
-      .from('conversations')
-      .select(
-        'id, account_id, contact_id, status, last_message_text, last_message_at, ai_summary, created_at, contact:contacts(id, name, phone, email, metadata)'
-      )
-      .eq('id', conversationId)
-      .eq('account_id', ctx.accountId)
-      .maybeSingle();
+  const { data: conversationData, error: conversationError } = await ctx.admin
+    .from('conversations')
+    .select(
+      'id, account_id, contact_id, status, last_message_text, last_message_at, ai_summary, created_at, contact:contacts(id, name, phone, email, metadata)'
+    )
+    .eq('id', conversationId)
+    .eq('account_id', ctx.accountId)
+    .maybeSingle();
 
   if (conversationError) {
     console.error('[AI Copilot] conversation fetch error:', conversationError);
@@ -92,7 +91,7 @@ async function loadCopilotContext(
   let contact = relatedOne(conversation.contact) as CopilotContact | null;
 
   if (!contact) {
-    const { data: contactData, error: contactError } = await ctx.appwrite
+    const { data: contactData, error: contactError } = await ctx.admin
       .from('contacts')
       .select('id, name, phone, email, metadata')
       .eq('id', conversation.contact_id)
@@ -125,13 +124,13 @@ async function loadCopilotContext(
     kbRes,
     accountRes,
   ] = await Promise.all([
-    ctx.appwrite
+    ctx.admin
       .from('messages')
       .select('sender_type, content_type, content_text, created_at')
       .eq('conversation_id', conversation.id)
       .order('created_at', { ascending: false })
       .limit(120),
-    ctx.appwrite
+    ctx.admin
       .from('conversations')
       .select(
         'id, status, last_message_text, last_message_at, ai_summary, created_at'
@@ -141,7 +140,7 @@ async function loadCopilotContext(
       .order('last_message_at', { ascending: false, nullsFirst: false })
       .limit(8),
     Promise.resolve(
-      ctx.appwrite
+      ctx.admin
         .from('appointments')
         .select(
           'id, appointment_date, appointment_time, status, department, token_number, queue_position, booking_id, notes, created_at'
@@ -153,7 +152,7 @@ async function loadCopilotContext(
         .limit(12)
     ).catch(() => ({ data: [], error: null })),
     Promise.resolve(
-      ctx.appwrite
+      ctx.admin
         .from('hospital_lab_reports')
         .select(
           'id, test_name, status, file_url, summary, report_date, created_at, updated_at'
@@ -164,7 +163,7 @@ async function loadCopilotContext(
         .limit(8)
     ).catch(() => ({ data: [], error: null })),
     Promise.resolve(
-      ctx.appwrite
+      ctx.admin
         .from('knowledge_base')
         .select('category, question_title, answer_content')
         .eq('account_id', ctx.accountId)
@@ -173,7 +172,7 @@ async function loadCopilotContext(
         .limit(30)
     ).catch(() => ({ data: [], error: null })),
     Promise.resolve(
-      ctx.appwrite
+      ctx.admin
         .from('accounts')
         .select('name, openrouter_api_key, openrouter_model, ai_system_prompt')
         .eq('id', ctx.accountId)
@@ -224,7 +223,7 @@ export async function POST(request: Request) {
     if (contextOrResponse instanceof NextResponse) return contextOrResponse;
 
     const context = contextOrResponse;
-    const account = await ctx.appwrite
+    const account = await ctx.admin
       .from('accounts')
       .select(
         'openrouter_api_key, openrouter_model, ai_system_prompt, industry'

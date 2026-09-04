@@ -18,12 +18,15 @@ import {
   type AccountRole,
 } from '@/lib/auth/roles';
 
-export interface AppwriteUser {
+export interface AuthUser {
   id: string;
   email: string;
   name?: string;
   created_at?: string;
 }
+
+/** @deprecated Use `AuthUser`. Retained as a backward-compatible alias. */
+export type AppwriteUser = AuthUser;
 
 interface Profile {
   id: string;
@@ -45,7 +48,7 @@ interface AccountSummary {
 }
 
 interface AuthContextValue {
-  user: AppwriteUser | null;
+  user: AuthUser | null;
   profile: Profile | null;
   loading: boolean;
   profileLoading: boolean;
@@ -68,7 +71,7 @@ const AuthContext = createContext<AuthContextValue | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const router = useRouter();
-  const [user, setUser] = useState<AppwriteUser | null>(null);
+  const [user, setUser] = useState<AuthUser | null>(null);
   const [profile, setProfile] = useState<Profile | null>(null);
   const [account, setAccount] = useState<AccountSummary | null>(null);
   const [enabledModuleKeys, setEnabledModuleKeys] = useState<string[]>([]);

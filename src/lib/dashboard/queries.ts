@@ -1,4 +1,4 @@
-import type { AppwriteClient } from '@/lib/db/client';
+import type { DbClient } from '@/lib/db/client';
 import {
   daysAgoStart,
   DOW_SHORT_MON_FIRST,
@@ -25,7 +25,7 @@ import type {
 // heavy aggregations to SQL RPCs. Noted in the PR.
 // ------------------------------------------------------------
 
-type DB = AppwriteClient;
+type DB = DbClient;
 
 // --- 1. Metric cards ---------------------------------------------------
 

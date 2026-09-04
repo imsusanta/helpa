@@ -70,14 +70,6 @@ function LoginPageInner() {
         return;
       }
 
-      if (data.sessionSecret && typeof window !== 'undefined') {
-        try {
-          window.localStorage.setItem('appwrite_session', data.sessionSecret);
-        } catch {
-          // ignore storage errors
-        }
-      }
-
       router.refresh();
       if (inviteToken) {
         router.push(`/join/${encodeURIComponent(inviteToken)}`);

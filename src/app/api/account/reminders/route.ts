@@ -10,7 +10,7 @@ export async function GET() {
   try {
     const ctx = await requireRole('admin');
 
-    const { data: account, error } = await ctx.appwrite
+    const { data: account, error } = await ctx.admin
       .from('accounts')
       .select(
         'reminder_enabled, reminder_24h_enabled, reminder_2h_enabled, reminder_custom_time, reminder_template, reminder_business_hours'
@@ -95,7 +95,7 @@ export async function PATCH(request: Request) {
       );
     }
 
-    const { data, error } = await ctx.appwrite
+    const { data, error } = await ctx.admin
       .from('accounts')
       .update(updates)
       .eq('id', ctx.accountId)
