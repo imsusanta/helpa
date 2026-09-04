@@ -145,19 +145,19 @@ jobs:
     timeout-minutes: 10
     strategy:
       fail-fast: false
-    matrix:
-      include:
-        - name: authorization and privacy
-          paths: src/tests/security
-        - name: WhatsApp integrity
-          paths: >-
-            src/tests/whatsapp/outbox-service.test.ts
-            src/tests/whatsapp/webhook-idempotency.test.ts
-            src/tests/whatsapp/oauth-state.test.ts
-        - name: persistence safety
-          paths: >-
-            src/tests/tenant-isolation.test.ts
-            src/tests/reminders/appointment-reminders.test.ts
+      matrix:
+        include:
+          - name: authorization and privacy
+            paths: src/tests/security
+          - name: WhatsApp integrity
+            paths: >-
+              src/tests/whatsapp/outbox-service.test.ts
+              src/tests/whatsapp/webhook-idempotency.test.ts
+              src/tests/whatsapp/oauth-state.test.ts
+          - name: persistence safety
+            paths: >-
+              src/tests/tenant-isolation.test.ts
+              src/tests/reminders/appointment-reminders.test.ts
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
