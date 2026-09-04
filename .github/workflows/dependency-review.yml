@@ -18,8 +18,6 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 22
-          cache: npm
-      - run: npm ci
       - name: Audit production dependencies
         run: npm audit --omit=dev --audit-level=moderate
       - name: Review dependency diff
