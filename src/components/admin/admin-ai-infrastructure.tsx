@@ -249,8 +249,7 @@ export function AdminAiInfrastructure() {
         `Synced ${models.length} Cloudflare-hosted models from your account!`
       );
     } catch (err: unknown) {
-      const msg =
-        err instanceof Error ? err.message : 'Failed to sync models';
+      const msg = err instanceof Error ? err.message : 'Failed to sync models';
       toast.error(msg);
     } finally {
       setIsSyncingCfModels(false);

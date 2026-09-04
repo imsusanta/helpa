@@ -98,10 +98,10 @@ jobs:
       - name: RLS schema invariants (policies imply enforcement)
         run: npm run supabase:invariants
 
-  security_supply_chain:
-    name: Secrets and dependency security
+  security_secret_scan:
+    name: Secret detection
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
         with:
@@ -110,13 +110,43 @@ jobs:
         uses: gitleaks/gitleaks-action@v3
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  security_dependency_audit:
+    name: Dependency security audit
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
           node-version: 22
-          cache: npm
-      - run: npm ci
       - name: Block high-severity dependency vulnerabilities
-        run: npm audit --audit-level=high
+        shell: bash
+        run: |
+          for attempt in 1 2 3; do
+            if timeout 180s npm audit --audit-level=high; then
+              exit 0
+            fi
+            if [ "$attempt" -lt 3 ]; then
+              echo "npm audit attempt $attempt failed or timed out; retrying in 15 seconds..."
+              sleep 15
+            fi
+          done
+          exit 1
+
+  security_supply_chain:
+    name: Secrets and dependency security
+    needs: [security_secret_scan, security_dependency_audit]
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - name: Enforce security results
+        env:
+          SECRET_SCAN_RESULT: ${{ needs.security_secret_scan.result }}
+          DEPENDENCY_AUDIT_RESULT: ${{ needs.security_dependency_audit.result }}
+        run: |
+          test "$SECRET_SCAN_RESULT" = success
+          test "$DEPENDENCY_AUDIT_RESULT" = success
 
   security_tests:
     name: Security regression — ${{ matrix.name }}

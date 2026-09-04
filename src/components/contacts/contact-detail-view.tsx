@@ -73,7 +73,8 @@ export function ContactDetailView({
   const { accountId, defaultCurrency, account } = useAuth();
   const { terminology, currentIndustry } = useWorkspace();
   const isHospital =
-    currentIndustry === 'hospital_clinic' || currentIndustry === 'hospital-clinic';
+    currentIndustry === 'hospital_clinic' ||
+    currentIndustry === 'hospital-clinic';
 
   const [activeTab, setActiveTab] = useState('timeline');
   const [contact, setContact] = useState<Contact | null>(null);

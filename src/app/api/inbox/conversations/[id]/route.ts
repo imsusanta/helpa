@@ -249,9 +249,7 @@ export async function PATCH(request: NextRequest, { params }: Params) {
       body.ai_chat_enabled !== undefined ||
       body.aiChatEnabled !== undefined
     ) {
-      const enabled = Boolean(
-        body.ai_chat_enabled ?? body.aiChatEnabled
-      );
+      const enabled = Boolean(body.ai_chat_enabled ?? body.aiChatEnabled);
       updatePayload.ai_chat_enabled = enabled;
       if (enabled) {
         updatePayload.ai_handoff_required = false;
