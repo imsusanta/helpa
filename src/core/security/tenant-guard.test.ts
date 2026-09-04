@@ -6,10 +6,7 @@ const { recordSecurityEvent } = vi.hoisted(() => ({
 
 vi.mock('./security-events', () => ({ recordSecurityEvent }));
 
-import {
-  assertTenantOwnership,
-  validateWorkspaceContext,
-} from './tenant-guard';
+import { assertTenantOwnership, validateWorkspaceContext } from './tenant-guard';
 
 describe('tenant guard coverage', () => {
   beforeEach(() => {
