@@ -41,6 +41,7 @@ export async function setProviderCooldown(
   provider: string,
   durationMs: number
 ): Promise<void> {
+  if (durationMs <= 0) return;
   try {
     const db = getAdminClient();
     const current = await loadProviderCooldowns();

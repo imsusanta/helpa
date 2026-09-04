@@ -34,8 +34,9 @@ const PROVIDER_ORDER: AiProviderName[] = [
 ];
 const MAX_PRIMARY_ATTEMPTS = 1;
 const MAX_FALLBACK_ATTEMPTS = 1;
-const RATE_LIMIT_COOLDOWN_MS = 30 * 60 * 1000;
-const TRANSIENT_COOLDOWN_MS = 10 * 60 * 1000;
+export const RATE_LIMIT_COOLDOWN_MS = 30 * 60 * 1000; // 30 mins for quota exhaustion (429)
+export const OUTAGE_COOLDOWN_MS = 10 * 60 * 1000; // 10 mins for other retryable provider outages/errors
+export const TIMEOUT_COOLDOWN_MS = 0; // 0 ms: single query timeout triggers in-request fallback but NO persistent lockout
 
 export interface ProviderResolutionParams {
   accountId?: string;
@@ -417,10 +418,14 @@ export async function resolveAccountAiConfig(
   };
 }
 
-function cooldownForError(error: HelpaAiError): number {
-  return error.code === 'AI_RATE_LIMITED'
-    ? RATE_LIMIT_COOLDOWN_MS
-    : TRANSIENT_COOLDOWN_MS;
+export function cooldownForError(error: HelpaAiError): number {
+  if (error.code === 'AI_TIMEOUT') {
+    return TIMEOUT_COOLDOWN_MS;
+  }
+  if (error.code === 'AI_RATE_LIMITED') {
+    return RATE_LIMIT_COOLDOWN_MS;
+  }
+  return OUTAGE_COOLDOWN_MS;
 }
 
 async function recordProviderFailure(
@@ -429,7 +434,10 @@ async function recordProviderFailure(
   workspaceId: string,
   conversationId: string | undefined
 ): Promise<void> {
-  await setProviderCooldown(provider, cooldownForError(error));
+  const cooldownMs = cooldownForError(error);
+  if (cooldownMs > 0) {
+    await setProviderCooldown(provider, cooldownMs);
+  }
   try {
     const db = getAdminClient();
     await db.from('audit_logs').insert({
@@ -443,7 +451,8 @@ async function recordProviderFailure(
         error_code: error.code,
         status: error.status || null,
         conversation_id: conversationId || null,
-        cooldown_minutes: cooldownForError(error) / 60000,
+        cooldown_minutes: cooldownMs > 0 ? cooldownMs / 60000 : 0,
+        persistent_cooldown: cooldownMs > 0,
         timestamp: new Date().toISOString(),
       },
     });
