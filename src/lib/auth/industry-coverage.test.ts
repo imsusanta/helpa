@@ -49,13 +49,16 @@ describe('industry auth guards', () => {
     ['real_estate', requireRealEstateWorkplace],
     ['gym', requireGymWorkplace],
     ['restaurant', requireRestaurantWorkplace],
-  ])('allows the %s wrapper for its matching workspace', async (industry, guard) => {
-    const ctx = context(industry);
-    requireRole.mockResolvedValue(ctx);
+  ])(
+    'allows the %s wrapper for its matching workspace',
+    async (industry, guard) => {
+      const ctx = context(industry);
+      requireRole.mockResolvedValue(ctx);
 
-    await expect(guard()).resolves.toBe(ctx);
-    expect(requireRole).toHaveBeenCalledWith('viewer');
-  });
+      await expect(guard()).resolves.toBe(ctx);
+      expect(requireRole).toHaveBeenCalledWith('viewer');
+    }
+  );
 
   it('accepts any explicitly allowed canonical industry', async () => {
     const ctx = context('coaching');

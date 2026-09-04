@@ -137,7 +137,8 @@ export default function ContactsPage() {
   const contactConfig = industryModule.entityConfigs?.contacts;
   const { terminology, currentIndustry } = useWorkspace();
   const isHospital =
-    currentIndustry === 'hospital_clinic' || currentIndustry === 'hospital-clinic';
+    currentIndustry === 'hospital_clinic' ||
+    currentIndustry === 'hospital-clinic';
   const entityLabel = terminology.person;
   const entityLabelPlural = terminology.people;
   const _customFields = contactConfig?.fields || [];

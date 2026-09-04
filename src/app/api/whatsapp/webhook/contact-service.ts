@@ -161,7 +161,8 @@ export async function findOrCreateContact(
       .maybeSingle();
 
     const isHospital =
-      acc?.industry === 'hospital_clinic' || acc?.industry === 'hospital-clinic';
+      acc?.industry === 'hospital_clinic' ||
+      acc?.industry === 'hospital-clinic';
 
     if (isHospital) {
       const { data: maxPatient } = await db

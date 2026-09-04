@@ -1,7 +1,13 @@
 'use client';
 
 import Link from 'next/link';
-import { MessageSquare, Calendar, User, BarChart3, ArrowRight } from 'lucide-react';
+import {
+  MessageSquare,
+  Calendar,
+  User,
+  BarChart3,
+  ArrowRight,
+} from 'lucide-react';
 
 const FEATURES = [
   {
@@ -54,10 +60,13 @@ export function LandingWhyBusinessesLoveUs() {
   return (
     <section className="relative overflow-hidden bg-white py-20 lg:py-28">
       {/* Background Decorative Wave & Leaf Accents from Reference Image */}
-      <div className="pointer-events-none absolute inset-x-0 bottom-0 h-48 opacity-60" aria-hidden="true">
+      <div
+        className="pointer-events-none absolute inset-x-0 bottom-0 h-48 opacity-60"
+        aria-hidden="true"
+      >
         <svg
           viewBox="0 0 1440 240"
-          className="w-full h-full object-cover"
+          className="h-full w-full object-cover"
           preserveAspectRatio="none"
           fill="none"
           xmlns="http://www.w3.org/2000/svg"
@@ -70,8 +79,15 @@ export function LandingWhyBusinessesLoveUs() {
       </div>
 
       {/* Decorative leaf motif on bottom right */}
-      <div className="pointer-events-none absolute bottom-0 right-4 lg:right-12 w-36 sm:w-48 opacity-40" aria-hidden="true">
-        <svg viewBox="0 0 160 160" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <div
+        className="pointer-events-none absolute right-4 bottom-0 w-36 opacity-40 sm:w-48 lg:right-12"
+        aria-hidden="true"
+      >
+        <svg
+          viewBox="0 0 160 160"
+          fill="none"
+          xmlns="http://www.w3.org/2000/svg"
+        >
           <path
             d="M30 150C30 90 80 40 140 20C120 70 80 120 30 150Z"
             fill="#C9F2DC"
@@ -90,22 +106,23 @@ export function LandingWhyBusinessesLoveUs() {
       </div>
 
       <div className="relative mx-auto max-w-[1400px] px-4 sm:px-6 lg:px-8">
-        <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 items-stretch">
-          
+        <div className="grid grid-cols-1 items-stretch gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
           {/* Left Intro Text Block */}
-          <div className="flex flex-col justify-center pr-0 sm:pr-4 sm:col-span-2 lg:col-span-3 xl:col-span-1 mb-4 xl:mb-0">
-            <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-[#00A884]">
-              <span className="w-5 h-0.5 bg-[#00A884]" />
+          <div className="mb-4 flex flex-col justify-center pr-0 sm:col-span-2 sm:pr-4 lg:col-span-3 xl:col-span-1 xl:mb-0">
+            <div className="flex items-center gap-2 text-xs font-bold tracking-wider text-[#00A884] uppercase">
+              <span className="h-0.5 w-5 bg-[#00A884]" />
               <span>WHY BUSINESSES LOVE US</span>
             </div>
 
-            <h2 className="mt-4 text-3xl sm:text-4xl lg:text-[38px] font-extrabold tracking-tight text-slate-900 leading-[1.15]">
-              Everything You Need<br />
+            <h2 className="mt-4 text-3xl leading-[1.15] font-extrabold tracking-tight text-slate-900 sm:text-4xl lg:text-[38px]">
+              Everything You Need
+              <br />
               to Grow on <span className="text-[#00A884]">WhatsApp</span>
             </h2>
 
-            <p className="mt-4 text-sm text-slate-500 leading-relaxed font-normal max-w-sm">
-              From conversations to conversions – we automate it all so you can focus on growing your business.
+            <p className="mt-4 max-w-sm text-sm leading-relaxed font-normal text-slate-500">
+              From conversations to conversions – we automate it all so you can
+              focus on growing your business.
             </p>
           </div>
 
@@ -115,7 +132,7 @@ export function LandingWhyBusinessesLoveUs() {
             return (
               <div
                 key={item.title}
-                className="group relative flex flex-col justify-between rounded-[28px] border border-slate-100 bg-white p-7 shadow-[0_8px_30px_rgb(0,0,0,0.04)] hover:shadow-[0_16px_40px_rgb(0,0,0,0.08)] transition-all duration-300 hover:-translate-y-1.5"
+                className="group relative flex flex-col justify-between rounded-[28px] border border-slate-100 bg-white p-7 shadow-[0_8px_30px_rgb(0,0,0,0.04)] transition-all duration-300 hover:-translate-y-1.5 hover:shadow-[0_16px_40px_rgb(0,0,0,0.08)]"
               >
                 <div>
                   {/* Top Circle Icon */}
@@ -126,12 +143,12 @@ export function LandingWhyBusinessesLoveUs() {
                   </div>
 
                   {/* Title */}
-                  <h3 className="mt-6 text-lg font-bold text-slate-900 leading-snug">
+                  <h3 className="mt-6 text-lg leading-snug font-bold text-slate-900">
                     {item.title}
                   </h3>
 
                   {/* Description */}
-                  <p className="mt-2.5 text-xs sm:text-sm text-slate-500 leading-relaxed font-normal">
+                  <p className="mt-2.5 text-xs leading-relaxed font-normal text-slate-500 sm:text-sm">
                     {item.description}
                   </p>
                 </div>
@@ -149,7 +166,6 @@ export function LandingWhyBusinessesLoveUs() {
               </div>
             );
           })}
-
         </div>
       </div>
     </section>
