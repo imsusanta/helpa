@@ -39,7 +39,10 @@ jobs:
           npx vitest run --coverage --exclude='**/src/tests/integration/**' 2>&1 | tee /tmp/coverage.log
           status=${PIPESTATUS[0]}
           echo "status=$status" >> "$GITHUB_OUTPUT"
-          tail -n 80 /tmp/coverage.log > /tmp/coverage-tail.log
+          {
+            grep -A 20 -B 2 'src/lib/auth' /tmp/coverage.log || true
+            grep '^ERROR:' /tmp/coverage.log || true
+          } > /tmp/coverage-tail.log
           exit 0
       - name: Publish failure diagnostics
         if: github.event_name == 'pull_request' && steps.coverage.outputs.status != '0'
