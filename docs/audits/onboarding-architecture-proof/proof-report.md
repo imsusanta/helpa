@@ -207,12 +207,20 @@ Database: helpa_repo_test_db (PostgreSQL 16)
 ✅ PASS: Concurrent execution: The other transaction returned already_completed with mutated=false
 
 --- 6. Testing Explicit Reconfiguration Contract ---
+✅ PASS: Reconfigure on unresolved account is rejected by transaction lock check
+✅ PASS: Rejection error message explicitly identifies unresolved account requirement
 ✅ PASS: Reconfigure returned success = true
 ✅ PASS: Reconfigure returned status = "reconfigured"
 ✅ PASS: Reconfigure returned mutated = true
 ✅ PASS: Reconfigure preserved original completed_at timestamp
 ✅ PASS: Reconfigure updated workspace industry to salon
 ✅ PASS: Account table preserved original onboarding_completed_at
+✅ PASS: Reconfigure on exempted account succeeded
+✅ PASS: Exempted account reconfigure returned status = "reconfigured"
+✅ PASS: Exempt account industry updated to salon
+✅ PASS: Exempt account onboarding_completed_at strictly preserved as NULL
+✅ PASS: Exempt account onboarding_exempted_at strictly preserved
+✅ PASS: Exempt account exemption_reason strictly preserved
 
 --- 7. Testing Branched Workflow Tree Semantics ---
 ✅ PASS: Branched workflow onboarding succeeded
@@ -227,7 +235,7 @@ Database: helpa_repo_test_db (PostgreSQL 16)
 ✅ PASS: Account status preserved as trial (never overwritten to active)
 
 ================================================================
-REPO DATABASE VERIFICATION SUMMARY: 56 PASSED, 0 FAILED
+REPO DATABASE VERIFICATION SUMMARY: 66 PASSED, 0 FAILED
 ================================================================
 ```
 
@@ -243,30 +251,32 @@ To maintain strict truth in testing, test coverage is rigorously distinguished a
 - **What it Proves:** Row-level lock acquisition (`FOR UPDATE`), pre-write eligibility recheck, atomicity of helper writes, transaction rollback on mid-flow exception, trigger rejection (`42501`) of direct client writes to onboarding columns, and multi-round migration rerun safety with immutable cutoff guard.
 
 ### Tier 2: Real Database & Schema Integration Tests
-- **Files:** `scripts/verify-onboarding-contract-repo-db.mjs` (56 assertions), applied against canonical repository schema (`helpa_repo_test_db`).
+- **Files:** `scripts/verify-onboarding-contract-repo-db.mjs` (66 assertions), applied against canonical repository schema (`helpa_repo_test_db`).
 - **Scope:** Runs against the 76-table production database schema with all triggers, RLS policies, foreign keys, and indexes present.
-- **What it Proves:** Real RLS and trigger enforcement under simulated PostgREST roles (`authenticated`, `anon`), authorization header handling, single-transaction atomic helper execution (pipelines, stages, KB, automations, broadcasts), explicit reconfiguration contract (`p_reconfigure = true`), branched workflow hierarchy storage (`parent_step_id`, `branch: 'yes' | 'no'`), and preservation of billing/operational status (`status = 'trial'` preserved).
+- **What it Proves:** Real RLS and trigger enforcement under simulated PostgREST roles (`authenticated`, `anon`), authorization header handling, single-transaction atomic helper execution (pipelines, stages, KB, automations, broadcasts), explicit reconfiguration contract (`p_reconfigure = true`), transaction-lock rejection of reconfigure for unresolved accounts, preservation of completed/exempted markers on reconfigure, return of truthful stored state on retry, branched workflow hierarchy storage (`parent_step_id`, `branch: 'yes' | 'no'`), and preservation of billing/operational status (`status = 'trial'` preserved).
 
-### Tier 3: Real HTTP API Routes, Server Logic, and React Hooks
-- **Files:** `src/tests/onboarding-client.test.ts` (13 tests), `src/tests/onboarding-entry-point.test.ts` (12 tests).
-- **Scope:** Node / Vitest integration and unit testing.
+### Tier 3: Real HTTP API Routes and Server Logic (Vitest)
+- **Files:** `src/tests/onboarding-client.test.ts` (13 tests), `src/tests/onboarding-entry-point.test.ts` (9 tests).
+- **Scope:** Pure route contract tests and unit tests with standard Vitest runner (zero private React dispatcher emulation).
 - **What it Proves:**
-  - Strict server-side enforcement of workspace owner role (`requireRole('owner')`) on initial setup, reset, and reconfigure. Rejection of `admin`, `agent`, and unauthenticated requests.
+  - Strict server-side enforcement of workspace owner role (`requireRole('owner')`) on initial setup.
+  - Preservation of separate reset and reconfigure permissions (`admin` or `owner` permitted for maintenance).
   - Template reset (`reset: true`) preserves `onboarding_completed_at` and `onboarding_exempted_at` timestamps (never cleared to null).
   - Workflow flattener and tree loader preserve branching semantics.
-  - Actual React 19 hook (`useOnboardingGate`) execution: gating rules, session deferral, server-revalidated resume (`openOnboarding`), and error retry lifecycle.
-  - Visible error alerting (`role="alert"`) and "Retry Check" action in `DashboardDispatcher`.
-  - Owner-only "Resume Setup" action in `DashboardSetupChecklist`.
+  - Scoped session deferral storage keys (`helpa_onboarding_deferred_${accountId}`) prevent cross-tenant leakage.
 
-### Tier 4: Actual Browser E2E Coverage (Playwright)
-- **Files:** `e2e/onboarding-entry-point.spec.ts`.
-- **Scope:** Headless Chromium running against authenticated Next.js dashboard.
+### Tier 4: Actual Browser-Mounted Component & E2E Coverage (Playwright)
+- **Files:** `e2e/onboarding-entry-point.spec.ts` (9 tests passing), `src/app/auth/test-harness/page.tsx`, `src/app/auth/test-harness/test-harness-client.tsx`.
+- **Scope:** Headless Chromium mounting real client components via isolated test harness (`/auth/test-harness`) without test cookies or proxy bypasses.
 - **What it Proves:**
-  - Authenticated session cookie (`playwright_test_session`) navigates directly to `/dashboard` without redirecting to `/login`.
-  - Strictly requires the `<OnboardingOverlay />` wizard dialog (`expect(dialog).toBeVisible()`) for eligible owners with zero permissive conditional fallbacks.
-  - Verifies "Finish later" deferral flow hides the dialog and exposes "Resume Setup" on the checklist.
-  - Verifies clicking "Resume Setup" reopens the wizard.
-  - Verifies non-owner (`agent`) never receives the dialog or resume button even when the workspace needs onboarding.
+  - Production proxy (`src/proxy.ts`) contains zero test-cookie bypasses.
+  - Strictly requires the `<OnboardingOverlay />` wizard dialog (`expect(dialog).toBeVisible()`) for eligible owners.
+  - Non-owner (`agent`) never receives the dialog or resume button.
+  - Full keyboard accessibility: Tab navigation, Enter submission for forms, Enter to defer.
+  - Completion flow and page reload persistence: wizard closes upon completion and remains closed after page refresh.
+  - Error recovery & retry UI: 500 response renders visible alert banner (`role="alert"`) with actionable "Retry Save" button that successfully recovers.
+  - Settings reconfiguration regression: clicking "Change Workspace Business Template" and selecting "Salon & Spa" invokes explicit `/api/account/onboard` reconfigure contract (`{ industry: 'salon', reconfigure: true }`).
+  - Mobile responsiveness: 375x667 viewport renders wizard cleanly with zero horizontal scroll overflow (`scrollWidth <= innerWidth`).
 
 ---
 

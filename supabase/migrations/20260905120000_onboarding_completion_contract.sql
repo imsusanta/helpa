@@ -147,7 +147,7 @@ DECLARE
   v_seeded_auto_ids uuid[];
 BEGIN
   -- 1. Account-Scoped Row Lock
-  SELECT id, name, onboarding_completed_at, onboarding_exempted_at
+  SELECT id, name, industry, onboarding_completed_at, onboarding_exempted_at, onboarding_exemption_reason
   INTO v_account
   FROM public.accounts
   WHERE id = p_account_id
@@ -157,17 +157,25 @@ BEGIN
     RAISE EXCEPTION 'Account not found: %', p_account_id USING ERRCODE = 'P0002';
   END IF;
 
-  -- 2. Pre-write Eligibility Recheck Under Lock
-  IF v_account.onboarding_completed_at IS NOT NULL OR v_account.onboarding_exempted_at IS NOT NULL THEN
-    IF NOT p_reconfigure THEN
-      RETURN jsonb_build_object(
-        'success', true,
-        'status', 'already_completed',
-        'mutated', false,
-        'industry', p_industry,
-        'message', 'Onboarding is already completed or exempted for this workspace.'
-      );
-    END IF;
+  -- 2. Under Lock: Reject Reconfigure for Unresolved Accounts
+  IF p_reconfigure AND v_account.onboarding_completed_at IS NULL AND v_account.onboarding_exempted_at IS NULL THEN
+    RAISE EXCEPTION 'Cannot reconfigure an unresolved account. Workspace % must complete initial onboarding first.', p_account_id
+      USING ERRCODE = '22023';
+  END IF;
+
+  -- 3. Pre-write Eligibility Recheck Under Lock: Return Actual Stored State on No-Op
+  IF (v_account.onboarding_completed_at IS NOT NULL OR v_account.onboarding_exempted_at IS NOT NULL) AND NOT p_reconfigure THEN
+    RETURN jsonb_build_object(
+      'success', true,
+      'status', 'already_completed',
+      'mutated', false,
+      'industry', v_account.industry,
+      'name', v_account.name,
+      'completed_at', v_account.onboarding_completed_at,
+      'exempted_at', v_account.onboarding_exempted_at,
+      'exemption_reason', v_account.onboarding_exemption_reason,
+      'message', 'Onboarding is already completed or exempted for this workspace.'
+    );
   END IF;
 
   -- 3. Update Account profile (Preserves operational/billing status untouched)
@@ -312,19 +320,24 @@ BEGIN
     END LOOP;
   END IF;
 
-  -- 9. Final Completion Marker (preserves historical timestamp if already completed)
-  UPDATE public.accounts
-  SET
-    onboarding_completed_at = COALESCE(onboarding_completed_at, v_now),
-    updated_at = v_now
-  WHERE id = p_account_id;
+  -- 9. Final Completion Marker:
+  -- Only stamp completion for initial setup. Reconfiguration strictly preserves all completion/exemption fields exactly.
+  IF NOT p_reconfigure THEN
+    UPDATE public.accounts
+    SET
+      onboarding_completed_at = v_now,
+      updated_at = v_now
+    WHERE id = p_account_id;
+  END IF;
 
   RETURN jsonb_build_object(
     'success', true,
     'status', CASE WHEN p_reconfigure THEN 'reconfigured' ELSE 'completed' END,
     'mutated', true,
     'industry', p_industry,
-    'completed_at', COALESCE(v_account.onboarding_completed_at, v_now)
+    'completed_at', CASE WHEN p_reconfigure THEN v_account.onboarding_completed_at ELSE v_now END,
+    'exempted_at', v_account.onboarding_exempted_at,
+    'exemption_reason', v_account.onboarding_exemption_reason
   );
 END;
 $$;

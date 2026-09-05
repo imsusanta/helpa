@@ -479,6 +479,14 @@ async function verifyRepoDb() {
     retryResult.mutated === false,
     'Retry returned mutated = false (no mutations replayed)'
   );
+  assert(
+    retryResult.industry === 'hospital_clinic',
+    'Retry returned actual stored workspace industry'
+  );
+  assert(
+    retryResult.completed_at === accRow.onboarding_completed_at,
+    'Retry returned actual stored completed_at timestamp'
+  );
 
   // Verify record counts unchanged
   const kbCountAfterRetry = queryJson(
@@ -537,6 +545,38 @@ async function verifyRepoDb() {
 
   // 6. Explicit Reconfiguration Contract (p_reconfigure = true)
   console.log('\n--- 6. Testing Explicit Reconfiguration Contract ---');
+
+  // 6A. Reject reconfigure for unresolved accounts under transaction lock
+  const wsUnresolved = createTestWorkspace('unresolved_reconfig');
+  const unresolvedReconfigRes = execSql(`
+    SELECT public.complete_workspace_onboarding(
+      '${wsUnresolved.accountId}'::uuid,
+      '${wsUnresolved.userId}'::uuid,
+      'salon'::text,
+      'Unresolved Workspace'::text,
+      NULL,
+      'Prompt'::text,
+      'Welcome'::text,
+      ARRAY['salon']::text[],
+      '[]'::jsonb,
+      '[]'::jsonb,
+      '[]'::jsonb,
+      '[]'::jsonb,
+      true
+    );
+  `);
+  assert(
+    unresolvedReconfigRes.success === false,
+    'Reconfigure on unresolved account is rejected by transaction lock check'
+  );
+  assert(
+    unresolvedReconfigRes.stderr.includes(
+      'Cannot reconfigure an unresolved account'
+    ),
+    'Rejection error message explicitly identifies unresolved account requirement'
+  );
+
+  // 6B. Reconfigure on completed account: updates industry, preserves original completion timestamp
   const originalCompletedAt = accRow.onboarding_completed_at;
   const reconfigureSql = `
     SELECT public.complete_workspace_onboarding(
@@ -582,6 +622,64 @@ async function verifyRepoDb() {
   assert(
     updatedAcc.onboarding_completed_at === originalCompletedAt,
     'Account table preserved original onboarding_completed_at'
+  );
+
+  // 6C. Reconfigure on exempted legacy account: preserves NULL completed_at and original exemption
+  const wsExempt = createTestWorkspace('exempt_reconfig');
+  execSql(`
+    UPDATE public.accounts
+    SET onboarding_exempted_at = now() - interval '1 day',
+        onboarding_exemption_reason = 'legacy_account_pre_contract'
+    WHERE id = '${wsExempt.accountId}';
+  `);
+  const exemptBefore = queryJson(
+    `SELECT onboarding_completed_at, onboarding_exempted_at, onboarding_exemption_reason FROM public.accounts WHERE id = '${wsExempt.accountId}'`
+  )[0];
+  const reconfigExemptSql = `
+    SELECT public.complete_workspace_onboarding(
+      '${wsExempt.accountId}'::uuid,
+      '${wsExempt.userId}'::uuid,
+      'salon'::text,
+      'Exempt Reconfigured Salon'::text,
+      NULL,
+      'Prompt'::text,
+      'Welcome'::text,
+      ARRAY['salon']::text[],
+      '[]'::jsonb,
+      '[]'::jsonb,
+      '[]'::jsonb,
+      '[]'::jsonb,
+      true
+    ) as result;
+  `;
+  const reconfigExemptResult = queryJson(reconfigExemptSql)[0].result;
+  assert(
+    reconfigExemptResult.success === true,
+    'Reconfigure on exempted account succeeded'
+  );
+  assert(
+    reconfigExemptResult.status === 'reconfigured',
+    'Exempted account reconfigure returned status = "reconfigured"'
+  );
+  const exemptAfter = queryJson(
+    `SELECT industry, onboarding_completed_at, onboarding_exempted_at, onboarding_exemption_reason FROM public.accounts WHERE id = '${wsExempt.accountId}'`
+  )[0];
+  assert(
+    exemptAfter.industry === 'salon',
+    'Exempt account industry updated to salon'
+  );
+  assert(
+    exemptAfter.onboarding_completed_at === null,
+    'Exempt account onboarding_completed_at strictly preserved as NULL'
+  );
+  assert(
+    exemptAfter.onboarding_exempted_at === exemptBefore.onboarding_exempted_at,
+    'Exempt account onboarding_exempted_at strictly preserved'
+  );
+  assert(
+    exemptAfter.onboarding_exemption_reason ===
+      exemptBefore.onboarding_exemption_reason,
+    'Exempt account exemption_reason strictly preserved'
   );
 
   // 7. Testing Branched Workflow Templates with Hierarchical Steps

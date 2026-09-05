@@ -13,8 +13,6 @@ import {
 
 export async function POST(request: Request) {
   try {
-    const ctx = await requireRole('owner');
-    const admin = getSupabaseAdminClient();
     const body = await request.json().catch(() => ({}));
     const {
       industry,
@@ -32,6 +30,12 @@ export async function POST(request: Request) {
       timezone: _timezone,
       country: _country,
     } = body || {};
+
+    // Preserve existing reset and reconfigure permissions (admin or owner)
+    // separately from owner-only initial onboarding setup.
+    const isMaintenanceOp = Boolean(reset || reconfigure);
+    const ctx = await requireRole(isMaintenanceOp ? 'admin' : 'owner');
+    const admin = getSupabaseAdminClient();
 
     if (reset) {
       // Template reset resets industry to general and removes seeded workflows
@@ -225,8 +229,8 @@ export async function POST(request: Request) {
     }
 
     return NextResponse.json({
-      ...rpcResult,
       industry: validIndustryId,
+      ...rpcResult,
     });
   } catch (err) {
     return toErrorResponse(err);

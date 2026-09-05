@@ -538,22 +538,62 @@ describe('Helpa Client Onboarding Suite (Phase 2A)', () => {
     expect(data.error).toBe('Lock acquisition timeout or transaction error');
   });
 
-  it('10. Strictly enforces owner-only authorization; rejects non-owner roles with 403', async () => {
+  it('10. Separates permissions: initial setup requires owner; reconfigure and reset permit admin', async () => {
     const { requireRole } = await import('@/lib/auth/account');
+
+    // Non-owner trying initial setup -> rejected
     vi.mocked(requireRole).mockRejectedValueOnce(
       new Error('Forbidden: role owner required')
     );
+    const initialReq = new Request(
+      'http://localhost:3000/api/account/onboard',
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ industry: 'salon' }),
+      }
+    );
+    const initialRes = await handleOnboard(initialReq);
+    expect(initialRes.status).toBe(500);
+    const initialData = await initialRes.json();
+    expect(initialData.error).toContain('role owner required');
 
-    const req = new Request('http://localhost:3000/api/account/onboard', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ industry: 'salon' }),
+    // Admin role executing reconfigure -> permitted
+    vi.mocked(requireRole).mockResolvedValueOnce({
+      userId: 'user-admin-1',
+      accountId: 'acc-tenant-999',
+      role: 'admin',
+      industry: 'hospital_clinic',
+      account: {
+        id: 'acc-tenant-999',
+        name: 'Test Account',
+        industry: 'hospital_clinic',
+      },
+      admin: mockAdminClient as never,
     });
-
-    const res = await handleOnboard(req);
-    expect(res.status).toBe(500);
-    const data = await res.json();
-    expect(data.error).toContain('role owner required');
+    mockAdminClient.rpc.mockResolvedValueOnce({
+      data: {
+        success: true,
+        status: 'reconfigured',
+        mutated: true,
+        industry: 'salon',
+        completed_at: '2026-09-01T10:00:00Z',
+      },
+      error: null,
+    });
+    const reconfigReq = new Request(
+      'http://localhost:3000/api/account/onboard',
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ industry: 'salon', reconfigure: true }),
+      }
+    );
+    const reconfigRes = await handleOnboard(reconfigReq);
+    expect(reconfigRes.status).toBe(200);
+    const reconfigData = await reconfigRes.json();
+    expect(reconfigData.status).toBe('reconfigured');
+    expect(reconfigData.industry).toBe('salon');
   });
 
   it('11. Explicit reconfigure (reconfigure=true) forwards p_reconfigure=true and returns status=reconfigured', async () => {
@@ -651,5 +691,55 @@ describe('Helpa Client Onboarding Suite (Phase 2A)', () => {
     expect(res.status).toBe(200);
     // Operational billing status must remain intact, never overwritten
     expect(dbStore.accounts.status).toBe('trial');
+  });
+
+  it('14. Reconfigure on an unresolved account is rejected with error', async () => {
+    mockAdminClient.rpc.mockResolvedValueOnce({
+      data: null,
+      error: {
+        message:
+          'Cannot reconfigure an unresolved account. Workspace acc-tenant-999 must complete initial onboarding first.',
+      },
+    });
+
+    const req = new Request('http://localhost:3000/api/account/onboard', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ industry: 'salon', reconfigure: true }),
+    });
+
+    const res = await handleOnboard(req);
+    expect(res.status).toBe(500);
+    const data = await res.json();
+    expect(data.error).toContain('Cannot reconfigure an unresolved account');
+  });
+
+  it('15. Duplicate setup submission returns actual stored state rather than request input', async () => {
+    mockAdminClient.rpc.mockResolvedValueOnce({
+      data: {
+        success: true,
+        status: 'already_completed',
+        mutated: false,
+        industry: 'hospital_clinic', // Actual stored industry in DB
+        completed_at: '2026-09-01T10:00:00Z',
+        exempted_at: null,
+        exemption_reason: null,
+      },
+      error: null,
+    });
+
+    // Client requests 'gym', but workspace is already completed as 'hospital_clinic'
+    const req = new Request('http://localhost:3000/api/account/onboard', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ industry: 'gym' }),
+    });
+
+    const res = await handleOnboard(req);
+    expect(res.status).toBe(200);
+    const data = await res.json();
+    expect(data.status).toBe('already_completed');
+    expect(data.mutated).toBe(false);
+    expect(data.industry).toBe('hospital_clinic'); // Stored state preserved!
   });
 });
