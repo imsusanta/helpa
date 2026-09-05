@@ -22,7 +22,7 @@ describe('industry and feature identifier hardening', () => {
           subscriptionPlanId: 'plan_growth',
           subscriptionStatus: 'ACTIVE',
         },
-        'health.patient_profiles'
+        'health.patients'
       )
     ).resolves.toMatchObject({ allowed: true });
 
@@ -34,7 +34,7 @@ describe('industry and feature identifier hardening', () => {
           subscriptionPlanId: 'plan_growth',
           subscriptionStatus: 'ACTIVE',
         },
-        'realestate.lead_pipeline'
+        'realestate.leads'
       )
     ).resolves.toMatchObject({ allowed: true });
 
@@ -59,7 +59,7 @@ describe('industry and feature identifier hardening', () => {
         subscriptionPlanId: 'plan_growth',
         subscriptionStatus: 'ACTIVE',
       },
-      'health.patient_profiles'
+      'health.patients'
     );
 
     expect(result.allowed).toBe(false);

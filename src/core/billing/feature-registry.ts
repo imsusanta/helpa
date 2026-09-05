@@ -116,7 +116,7 @@ export async function canAccessFeature(
       return {
         allowed: false,
         featureKey,
-        requiredPlan: 'Growth ⭐ or Pro',
+        requiredPlan: 'Professional',
         reason: `Feature '${featureKey}' requires a plan that includes it.`,
       };
     }
