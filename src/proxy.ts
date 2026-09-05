@@ -77,6 +77,7 @@ export async function proxy(request: NextRequest) {
   }
 
   let user: { id: string; email?: string } | null = null;
+
   try {
     const runtime = getRuntimeConfig();
     if (runtime.authProvider === 'supabase') {

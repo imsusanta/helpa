@@ -46,11 +46,11 @@ export async function replaceSteps(
   return insertSteps(automationId, input);
 }
 
-export async function insertSteps(
-  automationId: string,
-  input: BuilderStepInput[]
-): Promise<string | null> {
-  if (!input || input.length === 0) return null;
+export function flattenStepsTree(
+  input: BuilderStepInput[],
+  automationId = ''
+): InsertRow[] {
+  if (!input || input.length === 0) return [];
 
   const looksFlat = input.some(
     (s) => s.branch !== undefined || s.parent_index !== undefined
@@ -65,23 +65,37 @@ export async function insertSteps(
   ) {
     steps.forEach((s, idx) => {
       const id = s.id ?? uid();
+      const stepType =
+        s.step_type || (s as { type?: string }).type || 'send_message';
+      const stepConfig =
+        s.step_config ??
+        ((s as { text?: string }).text
+          ? { text: (s as { text?: string }).text }
+          : {});
       rows.push({
         id,
         automation_id: automationId,
         parent_step_id: parentId,
         branch,
-        step_type: s.step_type,
-        step_config: s.step_config ?? {},
+        step_type: stepType,
+        step_config: stepConfig,
         position: idx,
       });
-      if (s.step_type === 'condition' && s.branches) {
+      if (stepType === 'condition' && s.branches) {
         if (s.branches.yes) walk(s.branches.yes, id, 'yes');
         if (s.branches.no) walk(s.branches.no, id, 'no');
       }
     });
   }
   walk(tree, null, null);
+  return rows;
+}
 
+export async function insertSteps(
+  automationId: string,
+  input: BuilderStepInput[]
+): Promise<string | null> {
+  const rows = flattenStepsTree(input, automationId);
   if (rows.length === 0) return null;
   const { error } = await getAdminClient()
     .from('automation_steps')

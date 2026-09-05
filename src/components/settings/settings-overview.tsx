@@ -277,7 +277,10 @@ export function SettingsOverview({
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
-        body: JSON.stringify({ industry: selectedIndustry }),
+        body: JSON.stringify({
+          industry: selectedIndustry,
+          reconfigure: true,
+        }),
       });
 
       await new Promise((r) => setTimeout(r, 400));
