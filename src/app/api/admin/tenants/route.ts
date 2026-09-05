@@ -105,11 +105,8 @@ export async function GET() {
     });
 
     return NextResponse.json(tenants);
-  } catch (error) {
-    console.error(
-      '[GET /api/admin/tenants] failed:',
-      error instanceof Error ? error.message : String(error)
-    );
+  } catch {
+    console.error('[GET /api/admin/tenants] Database query failed');
     return NextResponse.json(
       { error: 'Tenant data is temporarily unavailable' },
       { status: 503 }
@@ -140,12 +137,9 @@ export async function PATCH(request: Request) {
     const status = body?.status?.trim().toLowerCase();
     const allowedStatuses = new Set([
       'trial',
-      'trialing',
       'active',
-      'past_due',
       'cancelled',
       'expired',
-      'incomplete',
     ]);
     if (status && !allowedStatuses.has(status)) {
       return NextResponse.json(
@@ -232,11 +226,8 @@ export async function PATCH(request: Request) {
     }
 
     return NextResponse.json({ success: true });
-  } catch (error) {
-    console.error(
-      '[PATCH /api/admin/tenants] failed:',
-      error instanceof Error ? error.message : String(error)
-    );
+  } catch {
+    console.error('[PATCH /api/admin/tenants] Subscription update failed');
     return NextResponse.json(
       { error: 'Failed to update tenant subscription' },
       { status: 500 }

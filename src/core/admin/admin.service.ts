@@ -25,12 +25,12 @@ function tenantStatus(
   subscriptionStatus: string
 ): TenantAdminView['tenantStatus'] {
   if (suspended) return 'Suspended';
+  if (subscriptionStatus === 'ACTIVE') return 'Active';
   if (['TRIAL', 'TRIALING'].includes(subscriptionStatus)) return 'Trial';
   if (['CANCELLED', 'CANCELED'].includes(subscriptionStatus)) {
     return 'Cancelled';
   }
-  if (subscriptionStatus === 'EXPIRED') return 'Expired';
-  return 'Active';
+  return 'Expired';
 }
 
 function relatedPlan(row: Record<string, unknown> | null | undefined) {
@@ -155,7 +155,8 @@ export async function getPlatformMetrics(): Promise<PlatformMetrics> {
       subscription?.status || account.subscription_status
     );
     const suspended =
-      account.is_suspended === true || normalizeStatus(account.status) === 'SUSPENDED';
+      account.is_suspended === true ||
+      normalizeStatus(account.status) === 'SUSPENDED';
 
     if (suspended) {
       suspendedTenants++;
@@ -276,7 +277,6 @@ export async function listAllTenants(filter?: {
   const contacts = (contactsResult.data || []) as Record<string, unknown>[];
   const whatsapp = (whatsappResult.data || []) as Record<string, unknown>[];
   const usage = (usageResult.data || []) as Record<string, unknown>[];
-  const resolvePlanAmount = createPlanAmountResolver();
 
   let tenants = await Promise.all(
     accounts.map(async (account): Promise<TenantAdminView> => {
@@ -507,7 +507,7 @@ export async function extendTenantTrial({
   const { error } = await db
     .from('subscriptions')
     .update({
-      status: 'trialing',
+      status: 'trial',
       end_date: trialEnd,
       updated_at: new Date().toISOString(),
     })
