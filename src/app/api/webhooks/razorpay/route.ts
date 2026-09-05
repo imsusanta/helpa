@@ -17,12 +17,6 @@ function resultRecord(value: unknown): Record<string, unknown> | null {
 
 export async function POST(request: NextRequest): Promise<NextResponse> {
   try {
-    const rawBody = await request.text();
-    const signature = request.headers.get('x-razorpay-signature') || '';
-    if (!rawBody || !signature) {
-      return NextResponse.json({ error: 'Invalid webhook request' }, { status: 400 });
-    }
-
     const secret = process.env.RAZORPAY_WEBHOOK_SECRET;
     if (!secret) {
       console.error('[Razorpay Webhook] Secret is not configured');
@@ -30,6 +24,12 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
         { error: 'Webhook service is unavailable' },
         { status: 503 }
       );
+    }
+
+    const rawBody = await request.text();
+    const signature = request.headers.get('x-razorpay-signature') || '';
+    if (!rawBody || !signature) {
+      return NextResponse.json({ error: 'Invalid webhook request' }, { status: 400 });
     }
     if (!verifyRazorpayWebhookSignature(rawBody, signature, secret)) {
       console.warn('[Razorpay Webhook] Invalid signature rejected');
@@ -55,9 +55,9 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       )
       .eq('razorpay_order_id', event.orderId)
       .maybeSingle();
-    if (orderError) throw new Error(`Order lookup failed: ${orderError.message}`);
+    if (orderError) throw new Error('Payment order lookup failed');
     if (!order) {
-      console.error('[Razorpay Webhook] Unknown order:', event.orderId);
+      console.error('[Razorpay Webhook] Unknown provider order rejected');
       return NextResponse.json(
         { error: 'Payment order is not recognized' },
         { status: 409 }
@@ -78,11 +78,11 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       expectedAmountPaise <= 0 ||
       expectedAmountPaise !== event.amountPaise
     ) {
-      console.error('[Razorpay Webhook] Amount mismatch for order:', event.orderId);
+      console.error('[Razorpay Webhook] Provider amount mismatch rejected');
       return NextResponse.json({ error: 'Payment amount mismatch' }, { status: 400 });
     }
     if (String(order.currency).toUpperCase() !== event.currency) {
-      console.error('[Razorpay Webhook] Currency mismatch for order:', event.orderId);
+      console.error('[Razorpay Webhook] Provider currency mismatch rejected');
       return NextResponse.json({ error: 'Payment currency mismatch' }, { status: 400 });
     }
 
@@ -100,9 +100,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       );
       const result = resultRecord(data);
       if (error || !result?.ok) {
-        throw new Error(
-          `Failed to record payment failure: ${error?.message || String(result?.error || 'unknown')}`
-        );
+        throw new Error('Failed to record provider payment failure');
       }
       return NextResponse.json({
         received: true,
@@ -132,9 +130,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     );
     const result = resultRecord(data);
     if (error || !result?.ok) {
-      throw new Error(
-        `Failed to apply captured payment: ${error?.message || String(result?.error || 'unknown')}`
-      );
+      throw new Error('Failed to apply captured provider payment');
     }
 
     return NextResponse.json({
@@ -145,13 +141,10 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     });
   } catch (error) {
     if (error instanceof RazorpayWebhookPayloadError) {
-      console.warn('[Razorpay Webhook] Invalid payload:', error.message);
+      console.warn('[Razorpay Webhook] Invalid payload rejected');
       return NextResponse.json({ error: 'Invalid webhook payload' }, { status: 400 });
     }
-    console.error(
-      '[Razorpay Webhook] Processing failed:',
-      error instanceof Error ? error.message : String(error)
-    );
+    console.error('[Razorpay Webhook] Processing failed');
     return NextResponse.json(
       { error: 'Webhook processing failed' },
       { status: 500 }
