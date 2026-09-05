@@ -26,7 +26,9 @@ export async function GET() {
 
     const { data, error } = await supabase
       .from('accounts')
-      .select('welcome_message')
+      .select(
+        'onboarding_completed_at, onboarding_exempted_at, welcome_message'
+      )
       .eq('id', ctx.accountId)
       .maybeSingle();
 
@@ -36,11 +38,19 @@ export async function GET() {
       return NextResponse.json({ needs_onboarding: false });
     }
 
-    // welcome_message is set by /api/account/onboard on completion.
-    // NULL means the onboarding flow has never been completed.
-    const needs_onboarding = data?.welcome_message == null;
+    // Explicit server contract:
+    // - onboarding_completed_at set: completed onboarding wizard
+    // - onboarding_exempted_at set: legacy account exempted by server
+    // Both NULL means the account is eligible for guided onboarding.
+    const isCompleted = data?.onboarding_completed_at != null;
+    const isExempted = data?.onboarding_exempted_at != null;
+    const needs_onboarding = !isCompleted && !isExempted;
 
-    return NextResponse.json({ needs_onboarding });
+    return NextResponse.json({
+      needs_onboarding,
+      completed_at: data?.onboarding_completed_at ?? null,
+      exempted_at: data?.onboarding_exempted_at ?? null,
+    });
   } catch (err: unknown) {
     return toErrorResponse(err);
   }

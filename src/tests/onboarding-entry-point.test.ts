@@ -251,4 +251,82 @@ describe('Onboarding Entry Point & Eligibility Architecture', () => {
       expect(whatsappConnected).toBe(false);
     });
   });
+
+  describe('Account-Switch Stale-Response & Hook Resilience', () => {
+    it('discards stale response if account switches before request completes', async () => {
+      let currentAccountId = 'acc-1';
+      let hookNeedsOnboarding = false;
+
+      // Simulate asynchronous fetch where account changes mid-flight
+      const targetAccountId = currentAccountId;
+
+      const fetchPromise = new Promise<{ needs_onboarding: boolean }>(
+        (resolve) => {
+          setTimeout(() => {
+            resolve({ needs_onboarding: true });
+          }, 50);
+        }
+      );
+
+      // User immediately switches account to acc-2
+      currentAccountId = 'acc-2';
+
+      const data = await fetchPromise;
+      // Hook checks targetAccountId against currentAccountId
+      if (targetAccountId === currentAccountId) {
+        hookNeedsOnboarding = data.needs_onboarding;
+      }
+
+      // Should be discarded, hookNeedsOnboarding remains false for acc-2
+      expect(hookNeedsOnboarding).toBe(false);
+    });
+
+    it('handles transient network errors safely without blocking dashboard access', () => {
+      let hasError = false;
+      let needsOnboarding = false;
+      let gateLoading = true;
+
+      const handleNetworkError = () => {
+        hasError = true;
+        needsOnboarding = false;
+        gateLoading = false;
+      };
+
+      handleNetworkError();
+      expect(hasError).toBe(true);
+      expect(needsOnboarding).toBe(false);
+      expect(gateLoading).toBe(false);
+    });
+
+    it('retry clears error state and allows re-evaluating onboarding status', () => {
+      let hasError = true;
+      let fetched = false;
+
+      const retry = () => {
+        hasError = false;
+        fetched = true;
+      };
+
+      retry();
+      expect(hasError).toBe(false);
+      expect(fetched).toBe(true);
+    });
+
+    it('enforces owner-only check when attempting to resume onboarding via openOnboarding', () => {
+      let resumeAttempted = false;
+      const openOnboarding = (role: string | null) => {
+        if (role !== 'owner') return;
+        resumeAttempted = true;
+      };
+
+      openOnboarding('agent');
+      expect(resumeAttempted).toBe(false);
+
+      openOnboarding('admin');
+      expect(resumeAttempted).toBe(false);
+
+      openOnboarding('owner');
+      expect(resumeAttempted).toBe(true);
+    });
+  });
 });

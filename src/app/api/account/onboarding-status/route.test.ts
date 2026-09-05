@@ -43,12 +43,16 @@ describe('GET /api/account/onboarding-status', () => {
     mockAccountId = 'acc-123';
   });
 
-  it('returns needs_onboarding: true when welcome_message is null for eligible owner', async () => {
+  it('returns needs_onboarding: true when neither completed nor exempted for eligible owner', async () => {
     mockFrom.mockReturnValue({
       select: vi.fn().mockReturnValue({
         eq: vi.fn().mockReturnValue({
           maybeSingle: vi.fn().mockResolvedValue({
-            data: { welcome_message: null },
+            data: {
+              onboarding_completed_at: null,
+              onboarding_exempted_at: null,
+              welcome_message: null,
+            },
             error: null,
           }),
         }),
@@ -59,14 +63,20 @@ describe('GET /api/account/onboarding-status', () => {
     expect(res.status).toBe(200);
     const body = await res.json();
     expect(body.needs_onboarding).toBe(true);
+    expect(body.completed_at).toBeNull();
+    expect(body.exempted_at).toBeNull();
   });
 
-  it('returns needs_onboarding: false when welcome_message is already set', async () => {
+  it('returns needs_onboarding: false when onboarding_completed_at is already set', async () => {
     mockFrom.mockReturnValue({
       select: vi.fn().mockReturnValue({
         eq: vi.fn().mockReturnValue({
           maybeSingle: vi.fn().mockResolvedValue({
-            data: { welcome_message: 'Namaste! Welcome to our clinic.' },
+            data: {
+              onboarding_completed_at: '2026-09-05T10:00:00Z',
+              onboarding_exempted_at: null,
+              welcome_message: 'Namaste! Welcome to our clinic.',
+            },
             error: null,
           }),
         }),
@@ -77,6 +87,30 @@ describe('GET /api/account/onboarding-status', () => {
     expect(res.status).toBe(200);
     const body = await res.json();
     expect(body.needs_onboarding).toBe(false);
+    expect(body.completed_at).toBe('2026-09-05T10:00:00Z');
+  });
+
+  it('returns needs_onboarding: false when onboarding_exempted_at is set (legacy account)', async () => {
+    mockFrom.mockReturnValue({
+      select: vi.fn().mockReturnValue({
+        eq: vi.fn().mockReturnValue({
+          maybeSingle: vi.fn().mockResolvedValue({
+            data: {
+              onboarding_completed_at: null,
+              onboarding_exempted_at: '2026-09-05T00:00:00Z',
+              welcome_message: null,
+            },
+            error: null,
+          }),
+        }),
+      }),
+    });
+
+    const res = await handleOnboardingStatus();
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.needs_onboarding).toBe(false);
+    expect(body.exempted_at).toBe('2026-09-05T00:00:00Z');
   });
 
   it('returns 403 Forbidden for invited staff (agent role)', async () => {

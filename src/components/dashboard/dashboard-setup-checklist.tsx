@@ -34,8 +34,10 @@ export function DashboardSetupChecklist({
         const res = await fetch('/api/whatsapp/config');
         if (res.ok) {
           const data = await res.json();
-          if (data?.config?.is_active || data?.config?.phone_number_id) {
+          if (data?.connected === true) {
             setHasWhatsApp(true);
+          } else {
+            setHasWhatsApp(false);
           }
         }
       } catch {
@@ -120,7 +122,7 @@ export function DashboardSetupChecklist({
 
         {/* Action Buttons */}
         <div className="flex flex-wrap items-center gap-2">
-          {onResumeOnboarding && (
+          {onResumeOnboarding && accountRole === 'owner' && (
             <Button
               size="sm"
               variant="outline"

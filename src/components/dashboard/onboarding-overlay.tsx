@@ -322,6 +322,7 @@ export function OnboardingOverlay({
 
   // STEP 3: WhatsApp
   const [whatsappConnected, setWhatsappConnected] = useState(false);
+  const [whatsappConfigured, setWhatsappConfigured] = useState(false);
   const [whatsappTab, setWhatsappTab] = useState<'embedded' | 'qr' | 'manual'>(
     'embedded'
   );
@@ -369,9 +370,12 @@ export function OnboardingOverlay({
         const res = await fetch('/api/whatsapp/config');
         if (res.ok) {
           const data = await res.json();
-          if (data?.config?.is_active || data?.config?.phone_number_id) {
-            setWhatsappConnected(true);
-          }
+          const isConnected = data?.connected === true;
+          const isConfigured = Boolean(
+            data?.configured || data?.config?.phone_number_id
+          );
+          setWhatsappConnected(isConnected);
+          setWhatsappConfigured(isConfigured);
         }
       } catch {
         /* ignore fallback */
@@ -485,10 +489,22 @@ export function OnboardingOverlay({
         }),
       });
       if (res.ok) {
-        setWhatsappConnected(true);
-        toast.success('WhatsApp credentials saved!');
+        setWhatsappConfigured(true);
+        // Verify live connectivity
+        const checkRes = await fetch('/api/whatsapp/config').catch(() => null);
+        const checkData =
+          checkRes && checkRes.ok
+            ? await checkRes.json().catch(() => ({}))
+            : null;
+        if (checkData?.connected === true) {
+          setWhatsappConnected(true);
+          toast.success('WhatsApp connected and verified!');
+        } else {
+          setWhatsappConnected(false);
+          toast.info('WhatsApp credentials saved (verification pending).');
+        }
       } else {
-        toast.error('Failed to verify WhatsApp credentials');
+        toast.error('Failed to save WhatsApp credentials');
       }
     } catch {
       toast.error('Network error saving WhatsApp');
@@ -497,7 +513,7 @@ export function OnboardingOverlay({
     }
   };
 
-  // Handler for Step 5: Live AI Test Chat
+  // Handler for Step 5: Live AI Test Chat (No fake replies on error)
   const handleSendTestMessage = async (msgText?: string) => {
     const textToSend = msgText || inputMsg;
     if (!textToSend.trim() || testingAi) return;
@@ -527,28 +543,28 @@ export function OnboardingOverlay({
       } else {
         const errorReply =
           data.error ||
-          "I'm ready! I will use your official business information and services to answer your customers.";
+          'Unable to reach AI test service. Please verify AI provider configuration or retry.';
         setChatMessages([
           ...newChat,
-          { role: 'assistant' as const, text: errorReply },
+          { role: 'assistant' as const, text: `⚠️ ${errorReply}` },
         ]);
-        setHasTestedAi(true);
+        setHasTestedAi(false);
       }
     } catch {
       setChatMessages([
         ...newChat,
         {
           role: 'assistant' as const,
-          text: `Namaste! Yes, we offer ${services[0]?.name || 'services'} at ₹${services[0]?.price || '500'}. Our operating hours are ${workingDays}.`,
+          text: '⚠️ Network error communicating with AI test service. Please retry.',
         },
       ]);
-      setHasTestedAi(true);
+      setHasTestedAi(false);
     } finally {
       setTestingAi(false);
     }
   };
 
-  // STEP 6: Final Go Live Submission
+  // STEP 6: Final Setup Submission
   const handleCompleteGoLive = async () => {
     setSaving(true);
     try {
@@ -566,12 +582,18 @@ export function OnboardingOverlay({
         }),
       });
 
+      const resData = await res.json().catch(() => ({}));
+
       if (!res.ok) {
-        const errData = await res.json().catch(() => ({}));
-        throw new Error(errData.error || 'Failed to complete setup');
+        throw new Error(resData.error || 'Failed to complete setup');
       }
 
-      toast.success('🎉 Your AI Receptionist is now LIVE!');
+      if (resData.status === 'already_completed') {
+        toast.info('Workspace setup is already saved.');
+      } else {
+        toast.success('🎉 Workspace setup saved!');
+      }
+
       await refreshProfile();
       await refreshModules();
       // Notify parent gate so the overlay closes and does not reappear
@@ -604,7 +626,7 @@ export function OnboardingOverlay({
                 {currentStep === 3 && 'WhatsApp Setup'}
                 {currentStep === 4 && 'AI Greeting'}
                 {currentStep === 5 && 'Test AI Receptionist'}
-                {currentStep === 6 && 'Ready to Go Live'}
+                {currentStep === 6 && 'Review Setup'}
               </span>
             </div>
 
@@ -1201,13 +1223,13 @@ export function OnboardingOverlay({
                   onClick={() => setCurrentStep(6)}
                   className="bg-emerald-600 px-6 font-bold text-white hover:bg-emerald-700"
                 >
-                  Review & Go Live <ArrowRight className="ml-1.5 size-4" />
+                  Review Setup <ArrowRight className="ml-1.5 size-4" />
                 </Button>
               </div>
             </div>
           )}
 
-          {/* STEP 6: Final Review & Go Live */}
+          {/* STEP 6: Final Review & Save Setup */}
           {currentStep === 6 && (
             <div className="animate-in fade-in-50 space-y-5 duration-200">
               <div>
@@ -1215,10 +1237,11 @@ export function OnboardingOverlay({
                   id="onboarding-step-title"
                   className="text-xl font-bold text-white"
                 >
-                  🚀 Ready to Go Live!
+                  📋 Review Workspace Setup
                 </h2>
                 <p className="text-muted-foreground mt-1 text-sm">
-                  Review your setup checklist and launch your AI Receptionist.
+                  Review your setup checklist and save your workspace
+                  configuration.
                 </p>
               </div>
 
@@ -1250,10 +1273,22 @@ export function OnboardingOverlay({
                 </div>
                 <div className="flex items-center justify-between border-b border-white/5 py-1.5">
                   <span className="flex items-center gap-2 text-zinc-300">
-                    <CheckCircle2 className="size-4 text-emerald-400" /> AI
-                    Testing
+                    {hasTestedAi ? (
+                      <CheckCircle2 className="size-4 text-emerald-400" />
+                    ) : (
+                      <AlertTriangle className="size-4 text-amber-400" />
+                    )}
+                    AI Testing
                   </span>
-                  <span className="font-semibold text-emerald-400">Passed</span>
+                  <span
+                    className={
+                      hasTestedAi
+                        ? 'font-semibold text-emerald-400'
+                        : 'text-amber-400'
+                    }
+                  >
+                    {hasTestedAi ? 'Passed' : 'Skipped / Untested'}
+                  </span>
                 </div>
                 <div className="flex items-center justify-between py-1.5">
                   <span className="flex items-center gap-2 text-zinc-300">
@@ -1273,7 +1308,9 @@ export function OnboardingOverlay({
                   >
                     {whatsappConnected
                       ? 'Connected'
-                      : 'Pending (Connect in Settings)'}
+                      : whatsappConfigured
+                        ? 'Credentials saved (Unverified)'
+                        : 'Pending (Connect in Settings)'}
                   </span>
                 </div>
               </div>
@@ -1313,7 +1350,7 @@ export function OnboardingOverlay({
                     {saving ? (
                       <Loader2 className="mr-1.5 size-4 animate-spin" />
                     ) : null}
-                    Go Live & Open Dashboard
+                    Save Setup & Open Dashboard
                   </Button>
                 </div>
               </div>
