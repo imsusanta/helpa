@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button';
 import { CheckCircle2, Circle, Smartphone, X } from 'lucide-react';
 
 interface DashboardSetupChecklistProps {
-  onResumeOnboarding?: () => void;
+  onResumeOnboarding?: () => void | Promise<void>;
 }
 
 export function DashboardSetupChecklist({

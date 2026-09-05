@@ -2,6 +2,10 @@ import { NextResponse } from 'next/server';
 import { requireRole, toErrorResponse } from '@/lib/auth/account';
 import { getAdminClient as getSupabaseAdminClient } from '@/lib/supabase/server';
 import {
+  flattenStepsTree,
+  type BuilderStepInput,
+} from '@/lib/automations/steps-tree';
+import {
   getIndustryModule,
   isValidIndustry,
   resolveCanonicalIndustry,
@@ -9,12 +13,13 @@ import {
 
 export async function POST(request: Request) {
   try {
-    const ctx = await requireRole('admin');
+    const ctx = await requireRole('owner');
     const admin = getSupabaseAdminClient();
     const body = await request.json().catch(() => ({}));
     const {
       industry,
       reset,
+      reconfigure,
       name: workspaceName,
       logo,
       location,
@@ -29,13 +34,12 @@ export async function POST(request: Request) {
     } = body || {};
 
     if (reset) {
+      // Template reset resets industry to general and removes seeded workflows
+      // but PRESERVES truthful onboarding_completed_at and onboarding_exempted_at markers.
       const { error: accErr } = await admin
         .from('accounts')
         .update({
           industry: 'general',
-          onboarding_completed_at: null,
-          onboarding_exempted_at: null,
-          onboarding_exemption_reason: null,
           updated_at: new Date().toISOString(),
         })
         .eq('id', ctx.accountId);
@@ -169,7 +173,7 @@ export async function POST(request: Request) {
       attachment_type: camp.attachmentType || null,
     }));
 
-    // Prepare workflows
+    // Prepare workflows with preserved parent/child and yes/no branching
     const workflows = (config.workflows || []).map((w) => ({
       name: w.name,
       description: w.description || '',
@@ -177,11 +181,15 @@ export async function POST(request: Request) {
       trigger_config: w.trigger_config || {},
       is_active: Boolean(w.is_active),
       seed_key: w.seedKey || '',
-      steps: (w.steps || []).map((st, idx) => ({
+      steps: flattenStepsTree(
+        (w.steps || []) as unknown as BuilderStepInput[]
+      ).map((st) => ({
+        id: st.id,
+        parent_step_id: st.parent_step_id,
+        branch: st.branch,
         step_type: st.step_type,
         step_config: st.step_config || {},
-        position: idx,
-        branch: null,
+        position: st.position,
       })),
     }));
 
@@ -202,6 +210,7 @@ export async function POST(request: Request) {
         p_kb_items: kbItems,
         p_campaigns: campaigns,
         p_workflows: workflows,
+        p_reconfigure: Boolean(reconfigure),
       }
     );
 

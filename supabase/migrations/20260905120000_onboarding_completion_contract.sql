@@ -114,6 +114,7 @@ CREATE TRIGGER tr_protect_account_onboarding_fields
   EXECUTE FUNCTION public.protect_account_onboarding_fields();
 
 -- 5. Single-Transaction Atomic Onboarding RPC
+DROP FUNCTION IF EXISTS public.complete_workspace_onboarding(uuid,uuid,text,text,text,text,text,text[],jsonb,jsonb,jsonb,jsonb);
 CREATE OR REPLACE FUNCTION public.complete_workspace_onboarding(
   p_account_id uuid,
   p_user_id uuid,
@@ -126,7 +127,8 @@ CREATE OR REPLACE FUNCTION public.complete_workspace_onboarding(
   p_pipeline_stages jsonb DEFAULT '[]'::jsonb,
   p_kb_items jsonb DEFAULT '[]'::jsonb,
   p_campaigns jsonb DEFAULT '[]'::jsonb,
-  p_workflows jsonb DEFAULT '[]'::jsonb
+  p_workflows jsonb DEFAULT '[]'::jsonb,
+  p_reconfigure boolean DEFAULT false
 )
 RETURNS jsonb
 LANGUAGE plpgsql
@@ -157,16 +159,18 @@ BEGIN
 
   -- 2. Pre-write Eligibility Recheck Under Lock
   IF v_account.onboarding_completed_at IS NOT NULL OR v_account.onboarding_exempted_at IS NOT NULL THEN
-    RETURN jsonb_build_object(
-      'success', true,
-      'status', 'already_completed',
-      'mutated', false,
-      'industry', p_industry,
-      'message', 'Onboarding is already completed or exempted for this workspace.'
-    );
+    IF NOT p_reconfigure THEN
+      RETURN jsonb_build_object(
+        'success', true,
+        'status', 'already_completed',
+        'mutated', false,
+        'industry', p_industry,
+        'message', 'Onboarding is already completed or exempted for this workspace.'
+      );
+    END IF;
   END IF;
 
-  -- 3. Update Account profile
+  -- 3. Update Account profile (Preserves operational/billing status untouched)
   UPDATE public.accounts
   SET
     name = COALESCE(NULLIF(p_workspace_name, ''), name),
@@ -174,7 +178,6 @@ BEGIN
     industry = p_industry,
     ai_system_prompt = COALESCE(p_ai_system_prompt, ai_system_prompt),
     welcome_message = COALESCE(p_welcome_message, welcome_message),
-    status = 'active',
     updated_at = v_now
   WHERE id = p_account_id;
 
@@ -289,37 +292,43 @@ BEGIN
 
       IF v_wf.steps IS NOT NULL AND jsonb_array_length(v_wf.steps) > 0 THEN
         FOR v_step IN SELECT * FROM jsonb_to_recordset(v_wf.steps) AS s(
-          step_type text, step_config jsonb, position int, branch text
+          id uuid, parent_step_id uuid, branch text, step_type text, step_config jsonb, position int
         ) LOOP
           INSERT INTO public.automation_steps (
-            automation_id, step_type, step_config, position, branch, created_at
+            id, automation_id, parent_step_id, branch, step_type, step_config, position, created_at
           )
           VALUES (
-            v_auto_id, v_step.step_type, COALESCE(v_step.step_config, '{}'::jsonb),
-            COALESCE(v_step.position, 0), v_step.branch, v_now
+            COALESCE(v_step.id, gen_random_uuid()),
+            v_auto_id,
+            v_step.parent_step_id,
+            v_step.branch,
+            v_step.step_type,
+            COALESCE(v_step.step_config, '{}'::jsonb),
+            COALESCE(v_step.position, 0),
+            v_now
           );
         END LOOP;
       END IF;
     END LOOP;
   END IF;
 
-  -- 9. Final Completion Marker
+  -- 9. Final Completion Marker (preserves historical timestamp if already completed)
   UPDATE public.accounts
   SET
-    onboarding_completed_at = v_now,
+    onboarding_completed_at = COALESCE(onboarding_completed_at, v_now),
     updated_at = v_now
   WHERE id = p_account_id;
 
   RETURN jsonb_build_object(
     'success', true,
-    'status', 'completed',
+    'status', CASE WHEN p_reconfigure THEN 'reconfigured' ELSE 'completed' END,
     'mutated', true,
     'industry', p_industry,
-    'completed_at', v_now
+    'completed_at', COALESCE(v_account.onboarding_completed_at, v_now)
   );
 END;
 $$;
 
 -- Protect RPC from unauthorized client invocation
-REVOKE EXECUTE ON FUNCTION public.complete_workspace_onboarding(uuid,uuid,text,text,text,text,text,text[],jsonb,jsonb,jsonb,jsonb) FROM PUBLIC, anon, authenticated;
-GRANT EXECUTE ON FUNCTION public.complete_workspace_onboarding(uuid,uuid,text,text,text,text,text,text[],jsonb,jsonb,jsonb,jsonb) TO service_role;
+REVOKE EXECUTE ON FUNCTION public.complete_workspace_onboarding(uuid,uuid,text,text,text,text,text,text[],jsonb,jsonb,jsonb,jsonb,boolean) FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.complete_workspace_onboarding(uuid,uuid,text,text,text,text,text,text[],jsonb,jsonb,jsonb,jsonb,boolean) TO service_role;

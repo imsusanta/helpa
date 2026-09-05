@@ -77,6 +77,25 @@ export async function proxy(request: NextRequest) {
   }
 
   let user: { id: string; email?: string } | null = null;
+
+  // Playwright E2E test support:
+  // When process.env.PLAYWRIGHT_TEST === 'true' and the playwright_test_session cookie is set,
+  // authenticate as the simulated test user so E2E tests can reach protected dashboard routes directly.
+  if (
+    process.env.PLAYWRIGHT_TEST === 'true' &&
+    request.cookies.get('playwright_test_session')?.value
+  ) {
+    user = {
+      id:
+        request.cookies.get('playwright_test_session')?.value ||
+        'playwright-test-user-id',
+      email: 'test-owner@example.com',
+    };
+    if (!isPublicRoute(pathname)) {
+      return NextResponse.next({ request });
+    }
+  }
+
   try {
     const runtime = getRuntimeConfig();
     if (runtime.authProvider === 'supabase') {

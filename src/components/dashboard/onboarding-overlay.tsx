@@ -291,6 +291,7 @@ export function OnboardingOverlay({
   // Active step: 1 to 6
   const [currentStep, setCurrentStep] = useState(1);
   const [saving, setSaving] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
 
   // STEP 1: Business Profile
   const [businessName, setBusinessName] = useState(account?.name || '');
@@ -567,6 +568,7 @@ export function OnboardingOverlay({
   // STEP 6: Final Setup Submission
   const handleCompleteGoLive = async () => {
     setSaving(true);
+    setSaveError(null);
     try {
       const res = await fetch('/api/account/onboard', {
         method: 'POST',
@@ -599,9 +601,9 @@ export function OnboardingOverlay({
       // Notify parent gate so the overlay closes and does not reappear
       await onComplete?.();
     } catch (err: unknown) {
-      toast.error(
-        err instanceof Error ? err.message : 'Error completing setup'
-      );
+      const msg = err instanceof Error ? err.message : 'Error completing setup';
+      setSaveError(msg);
+      toast.error(msg);
     } finally {
       setSaving(false);
     }
@@ -616,6 +618,21 @@ export function OnboardingOverlay({
     >
       <div className="mx-auto my-auto flex min-h-full items-center justify-center">
         <div className="relative w-full max-w-2xl rounded-2xl border border-white/10 bg-[#090D16] p-5 shadow-2xl sm:p-6 md:p-8">
+          {/* Defer Action */}
+          {onDefer && (
+            <button
+              type="button"
+              onClick={() => {
+                toast.info('You can resume setup anytime from the dashboard.');
+                onDefer();
+              }}
+              disabled={saving}
+              className="absolute top-4 right-4 z-10 cursor-pointer text-xs text-zinc-400 transition-colors hover:text-white"
+            >
+              Finish later
+            </button>
+          )}
+
           {/* Step Progress Header */}
           <div className="mb-6">
             <div className="text-muted-foreground flex items-center justify-between text-xs font-semibold tracking-wider uppercase">
@@ -1315,6 +1332,28 @@ export function OnboardingOverlay({
                 </div>
               </div>
 
+              {saveError && (
+                <div
+                  role="alert"
+                  className="flex items-center justify-between gap-3 rounded-lg border border-red-500/30 bg-red-500/10 p-3 text-sm text-red-300"
+                >
+                  <div className="flex items-center gap-2">
+                    <AlertTriangle className="size-4 shrink-0 text-red-400" />
+                    <span>{saveError}</span>
+                  </div>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    onClick={handleCompleteGoLive}
+                    disabled={saving}
+                    className="shrink-0 border-red-500/40 text-red-200 hover:bg-red-500/20"
+                  >
+                    Retry Save
+                  </Button>
+                </div>
+              )}
+
               <div className="flex items-center justify-between border-t border-white/10 pt-4">
                 <Button
                   type="button"
@@ -1325,22 +1364,6 @@ export function OnboardingOverlay({
                   <ArrowLeft className="mr-1.5 size-4" /> Back
                 </Button>
                 <div className="flex items-center gap-2">
-                  {onDefer && (
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      onClick={() => {
-                        toast.info(
-                          'You can resume setup anytime from the dashboard.'
-                        );
-                        onDefer();
-                      }}
-                      disabled={saving}
-                      className="text-xs text-zinc-400 hover:text-white"
-                    >
-                      Finish later
-                    </Button>
-                  )}
                   <Button
                     type="button"
                     onClick={handleCompleteGoLive}

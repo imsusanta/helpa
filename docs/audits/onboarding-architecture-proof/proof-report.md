@@ -30,7 +30,7 @@ The revised architecture introduces an authoritative, server-controlled contract
   - Acquires an account-scoped row lock (`FOR UPDATE`) on `public.accounts`.
   - Re-evaluates eligibility under lock: if already completed or exempted, safely returns `{ success: true, status: 'already_completed', mutated: false }`.
   - Atomically applies all helper writes:
-    - Account profile update (`name`, `industry`, `ai_system_prompt`, `welcome_message`, `status = 'active'`).
+    - Account profile update (`name`, `industry`, `ai_system_prompt`, `welcome_message`; operational/billing `status` is strictly preserved, never overwritten).
     - Module activation (`tenant_modules`).
     - Sales pipeline and stages (`pipelines`, `pipeline_stages`).
     - Custom services & company hours in Knowledge Base (`knowledge_base`), preserving existing FAQs.
@@ -206,14 +206,71 @@ Database: helpa_repo_test_db (PostgreSQL 16)
 ✅ PASS: Concurrent execution: Exactly 1 transaction acquired lock and mutated
 ✅ PASS: Concurrent execution: The other transaction returned already_completed with mutated=false
 
+--- 6. Testing Explicit Reconfiguration Contract ---
+✅ PASS: Reconfigure returned success = true
+✅ PASS: Reconfigure returned status = "reconfigured"
+✅ PASS: Reconfigure returned mutated = true
+✅ PASS: Reconfigure preserved original completed_at timestamp
+✅ PASS: Reconfigure updated workspace industry to salon
+✅ PASS: Account table preserved original onboarding_completed_at
+
+--- 7. Testing Branched Workflow Tree Semantics ---
+✅ PASS: Branched workflow onboarding succeeded
+✅ PASS: All 3 hierarchical steps stored in DB
+✅ PASS: Root condition step has parent_step_id = NULL and branch = NULL
+✅ PASS: Yes child step references root parent_step_id and branch = "yes"
+✅ PASS: No child step references root parent_step_id and branch = "no"
+
+--- 8. Testing Operational & Billing Status Preservation ---
+✅ PASS: Pre-onboarding status set to trial
+✅ PASS: Onboarding for trial account succeeded
+✅ PASS: Account status preserved as trial (never overwritten to active)
+
 ================================================================
-REPO DATABASE VERIFICATION SUMMARY: 42 PASSED, 0 FAILED
+REPO DATABASE VERIFICATION SUMMARY: 56 PASSED, 0 FAILED
 ================================================================
 ```
 
 ---
 
-## 4. Rollout Cohort Policy & Migration Safety
+## 4. Four-Tier Verification & Test Coverage Categorization
+
+To maintain strict truth in testing, test coverage is rigorously distinguished across four distinct levels of abstraction:
+
+### Tier 1: SQL Simulations (Standalone Disposable PostgreSQL 16)
+- **Files:** `docs/audits/onboarding-architecture-proof/onboarding-proof.sql`, `test-onboarding-proof.mjs` (50 assertions).
+- **Scope:** Runs in an isolated scratch database (`helpa_onboarding_proof_db`) without external application dependencies.
+- **What it Proves:** Row-level lock acquisition (`FOR UPDATE`), pre-write eligibility recheck, atomicity of helper writes, transaction rollback on mid-flow exception, trigger rejection (`42501`) of direct client writes to onboarding columns, and multi-round migration rerun safety with immutable cutoff guard.
+
+### Tier 2: Real Database & Schema Integration Tests
+- **Files:** `scripts/verify-onboarding-contract-repo-db.mjs` (56 assertions), applied against canonical repository schema (`helpa_repo_test_db`).
+- **Scope:** Runs against the 76-table production database schema with all triggers, RLS policies, foreign keys, and indexes present.
+- **What it Proves:** Real RLS and trigger enforcement under simulated PostgREST roles (`authenticated`, `anon`), authorization header handling, single-transaction atomic helper execution (pipelines, stages, KB, automations, broadcasts), explicit reconfiguration contract (`p_reconfigure = true`), branched workflow hierarchy storage (`parent_step_id`, `branch: 'yes' | 'no'`), and preservation of billing/operational status (`status = 'trial'` preserved).
+
+### Tier 3: Real HTTP API Routes, Server Logic, and React Hooks
+- **Files:** `src/tests/onboarding-client.test.ts` (13 tests), `src/tests/onboarding-entry-point.test.ts` (12 tests).
+- **Scope:** Node / Vitest integration and unit testing.
+- **What it Proves:**
+  - Strict server-side enforcement of workspace owner role (`requireRole('owner')`) on initial setup, reset, and reconfigure. Rejection of `admin`, `agent`, and unauthenticated requests.
+  - Template reset (`reset: true`) preserves `onboarding_completed_at` and `onboarding_exempted_at` timestamps (never cleared to null).
+  - Workflow flattener and tree loader preserve branching semantics.
+  - Actual React 19 hook (`useOnboardingGate`) execution: gating rules, session deferral, server-revalidated resume (`openOnboarding`), and error retry lifecycle.
+  - Visible error alerting (`role="alert"`) and "Retry Check" action in `DashboardDispatcher`.
+  - Owner-only "Resume Setup" action in `DashboardSetupChecklist`.
+
+### Tier 4: Actual Browser E2E Coverage (Playwright)
+- **Files:** `e2e/onboarding-entry-point.spec.ts`.
+- **Scope:** Headless Chromium running against authenticated Next.js dashboard.
+- **What it Proves:**
+  - Authenticated session cookie (`playwright_test_session`) navigates directly to `/dashboard` without redirecting to `/login`.
+  - Strictly requires the `<OnboardingOverlay />` wizard dialog (`expect(dialog).toBeVisible()`) for eligible owners with zero permissive conditional fallbacks.
+  - Verifies "Finish later" deferral flow hides the dialog and exposes "Resume Setup" on the checklist.
+  - Verifies clicking "Resume Setup" reopens the wizard.
+  - Verifies non-owner (`agent`) never receives the dialog or resume button even when the workspace needs onboarding.
+
+---
+
+## 5. Rollout Cohort Policy & Migration Safety
 
 | Cohort | Definition | Database State | Behavior & User Experience |
 |---|---|---|---|
@@ -224,7 +281,7 @@ REPO DATABASE VERIFICATION SUMMARY: 42 PASSED, 0 FAILED
 
 ---
 
-## 5. Explicit UNVERIFIED Items
+## 6. Explicit UNVERIFIED Items
 
 In compliance with testing safety principles:
 1. **Meta Embedded Signup Popup:** UNVERIFIED in live environment. Tested with mock credentials and verified that `whatsapp_config` state transitions fail open and do not emit false success.

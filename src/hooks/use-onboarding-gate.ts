@@ -43,9 +43,9 @@ export interface OnboardingGateResult {
    */
   deferForSession: () => void;
   /**
-   * Re-open the onboarding wizard after it was deferred for the session (owner-only).
+   * Re-open the onboarding wizard after it was deferred for the session (owner-only, server-revalidated).
    */
-  openOnboarding: () => void;
+  openOnboarding: () => Promise<void>;
 }
 
 const SESSION_DEFER_KEY = 'helpa_onboarding_deferred';
@@ -165,15 +165,16 @@ export function useOnboardingGate(): OnboardingGateResult {
     }
   }, [accountId]);
 
-  const openOnboarding = useCallback(() => {
-    // Owner-only validated resume
+  const openOnboarding = useCallback(async () => {
+    // Owner-only server-revalidated resume
     if (accountRole !== 'owner') return;
-    setDeferred(false);
-    setNeedsOnboarding(true);
     if (typeof window !== 'undefined' && accountId) {
       window.sessionStorage.removeItem(`${SESSION_DEFER_KEY}_${accountId}`);
     }
-  }, [accountId, accountRole]);
+    setDeferred(false);
+    fetchedRef.current = false;
+    await fetchStatus();
+  }, [accountId, accountRole, fetchStatus]);
 
   const retry = useCallback(async () => {
     fetchedRef.current = false;

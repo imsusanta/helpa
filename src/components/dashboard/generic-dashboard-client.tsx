@@ -181,7 +181,7 @@ const metricsCache = new Map<string, CachedMetricsData>();
 const METRICS_CACHE_TTL_MS = 60_000; // 1 minute
 
 interface GenericDashboardClientProps {
-  onResumeOnboarding?: () => void;
+  onResumeOnboarding?: () => void | Promise<void>;
 }
 
 export function GenericDashboardClient({

@@ -30,7 +30,10 @@ export default defineConfig({
   webServer: {
     command: `npx next start -p ${PORT}`,
     url: BASE_URL,
-    reuseExistingServer: false,
+    reuseExistingServer: !process.env.CI,
     timeout: 120 * 1000,
+    env: {
+      PLAYWRIGHT_TEST: 'true',
+    },
   },
 });

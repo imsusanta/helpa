@@ -15,6 +15,7 @@
  */
 
 import { execFileSync, spawn } from 'node:child_process';
+import { randomUUID } from 'node:crypto';
 
 const DB_HOST = '127.0.0.1';
 const DB_NAME = 'helpa_repo_test_db';
@@ -532,6 +533,178 @@ async function verifyRepoDb() {
   assert(
     unmutatedCount === 1,
     'Concurrent execution: The other transaction returned already_completed with mutated=false'
+  );
+
+  // 6. Explicit Reconfiguration Contract (p_reconfigure = true)
+  console.log('\n--- 6. Testing Explicit Reconfiguration Contract ---');
+  const originalCompletedAt = accRow.onboarding_completed_at;
+  const reconfigureSql = `
+    SELECT public.complete_workspace_onboarding(
+      '${testAcc2}'::uuid,
+      '${ws2.userId}'::uuid,
+      'salon'::text,
+      'Apollo Healthcare & Wellness Salon'::text,
+      NULL,
+      'You are Apollo Healthcare salon assistant'::text,
+      'Welcome to Apollo Salon'::text,
+      ARRAY['hospital_clinic', 'real_estate', 'salon']::text[],
+      '[]'::jsonb,
+      '[]'::jsonb,
+      '[]'::jsonb,
+      '[]'::jsonb,
+      true
+    ) as result;
+  `;
+  const reconfigResult = queryJson(reconfigureSql)[0].result;
+  assert(
+    reconfigResult.success === true,
+    'Reconfigure returned success = true'
+  );
+  assert(
+    reconfigResult.status === 'reconfigured',
+    'Reconfigure returned status = "reconfigured"'
+  );
+  assert(
+    reconfigResult.mutated === true,
+    'Reconfigure returned mutated = true'
+  );
+  assert(
+    reconfigResult.completed_at === originalCompletedAt,
+    'Reconfigure preserved original completed_at timestamp'
+  );
+  const updatedAcc = queryJson(
+    `SELECT industry, onboarding_completed_at FROM public.accounts WHERE id = '${testAcc2}'`
+  )[0];
+  assert(
+    updatedAcc.industry === 'salon',
+    'Reconfigure updated workspace industry to salon'
+  );
+  assert(
+    updatedAcc.onboarding_completed_at === originalCompletedAt,
+    'Account table preserved original onboarding_completed_at'
+  );
+
+  // 7. Testing Branched Workflow Templates with Hierarchical Steps
+  console.log('\n--- 7. Testing Branched Workflow Tree Semantics ---');
+  const ws4 = createTestWorkspace('branched_wf');
+  const testAcc4 = ws4.accountId;
+  const rootStepId = randomUUID();
+  const yesStepId = randomUUID();
+  const noStepId = randomUUID();
+
+  const branchedPayload = JSON.stringify([
+    {
+      name: 'Clinic Triage Workflow',
+      seed_key: 'clinic_triage',
+      trigger_type: 'keyword',
+      trigger_config: { keyword: 'triage' },
+      is_active: true,
+      steps: [
+        {
+          id: rootStepId,
+          parent_step_id: null,
+          branch: null,
+          step_type: 'condition',
+          step_config: { condition_type: 'time_window' },
+          position: 0,
+        },
+        {
+          id: yesStepId,
+          parent_step_id: rootStepId,
+          branch: 'yes',
+          step_type: 'send_message',
+          step_config: { text: 'Open now' },
+          position: 0,
+        },
+        {
+          id: noStepId,
+          parent_step_id: rootStepId,
+          branch: 'no',
+          step_type: 'send_message',
+          step_config: { text: 'Closed now' },
+          position: 1,
+        },
+      ],
+    },
+  ]);
+
+  const branchedWfSql = `
+    SELECT public.complete_workspace_onboarding(
+      '${testAcc4}'::uuid,
+      '${ws4.userId}'::uuid,
+      'hospital_clinic'::text,
+      'Branched Clinic'::text,
+      NULL,
+      'Prompt'::text,
+      'Welcome'::text,
+      ARRAY['hospital_clinic']::text[],
+      '[]'::jsonb,
+      '[]'::jsonb,
+      '[]'::jsonb,
+      '${branchedPayload.replace(/'/g, "''")}'::jsonb
+    ) as result;
+  `;
+  const branchedResult = queryJson(branchedWfSql)[0].result;
+  assert(
+    branchedResult.success === true,
+    'Branched workflow onboarding succeeded'
+  );
+
+  const stepsInDb = queryJson(`
+    SELECT id, parent_step_id, branch, step_type, position
+    FROM public.automation_steps
+    WHERE id IN ('${rootStepId}', '${yesStepId}', '${noStepId}')
+    ORDER BY position;
+  `);
+  assert(stepsInDb.length === 3, 'All 3 hierarchical steps stored in DB');
+  const rootRowDb = stepsInDb.find((s) => s.id === rootStepId);
+  const yesRowDb = stepsInDb.find((s) => s.id === yesStepId);
+  const noRowDb = stepsInDb.find((s) => s.id === noStepId);
+
+  assert(
+    rootRowDb && rootRowDb.parent_step_id === null && rootRowDb.branch === null,
+    'Root condition step has parent_step_id = NULL and branch = NULL'
+  );
+  assert(
+    yesRowDb &&
+      yesRowDb.parent_step_id === rootStepId &&
+      yesRowDb.branch === 'yes',
+    'Yes child step references root parent_step_id and branch = "yes"'
+  );
+  assert(
+    noRowDb && noRowDb.parent_step_id === rootStepId && noRowDb.branch === 'no',
+    'No child step references root parent_step_id and branch = "no"'
+  );
+
+  // 8. Testing Operational and Billing Status Preservation
+  console.log('\n--- 8. Testing Operational & Billing Status Preservation ---');
+  const ws5 = createTestWorkspace('billing_status');
+  const testAcc5 = ws5.accountId;
+  // Set non-active billing status e.g. trial or past_due
+  execSql(
+    `UPDATE public.accounts SET status = 'trial' WHERE id = '${testAcc5}';`
+  );
+  const beforeStatus = queryJson(
+    `SELECT status FROM public.accounts WHERE id = '${testAcc5}'`
+  )[0].status;
+  assert(beforeStatus === 'trial', 'Pre-onboarding status set to trial');
+
+  const onboardWs5Sql = `
+    SELECT public.complete_workspace_onboarding(
+      '${testAcc5}'::uuid,
+      '${ws5.userId}'::uuid,
+      'gym'::text,
+      'Fitness Center'::text
+    ) as result;
+  `;
+  const ws5Result = queryJson(onboardWs5Sql)[0].result;
+  assert(ws5Result.success === true, 'Onboarding for trial account succeeded');
+  const afterStatus = queryJson(
+    `SELECT status FROM public.accounts WHERE id = '${testAcc5}'`
+  )[0].status;
+  assert(
+    afterStatus === 'trial',
+    'Account status preserved as trial (never overwritten to active)'
   );
 
   console.log(
