@@ -7,6 +7,7 @@ on:
       - 'scripts/check-rls-invariants.mjs'
       - 'scripts/test-tenant-security.sh'
       - 'scripts/tests/**'
+      - 'scripts/security/**'
       - '.github/workflows/tenant-security.yml'
   push:
     branches: [main]
@@ -40,6 +41,10 @@ jobs:
           node-version: 22
       - name: Test the security validator itself
         run: node --test scripts/tests/rls-invariants.test.mjs
+      - name: Test authenticated-runner safety guards (not live E2E)
+        run: node --test scripts/tests/authenticated-test-safety.test.mjs
+      - name: Check isolated full-history runner syntax
+        run: bash -n scripts/security/verify-complete-migrations.sh
       - name: Check repository RLS invariants
         run: node scripts/check-rls-invariants.mjs
       - name: Install PostgreSQL client
