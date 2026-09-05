@@ -28,9 +28,6 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
 
     const rawBody = await request.text();
     const signature = request.headers.get('x-razorpay-signature') || '';
-    if (!rawBody || !signature) {
-      return NextResponse.json({ error: 'Invalid webhook request' }, { status: 400 });
-    }
     if (!verifyRazorpayWebhookSignature(rawBody, signature, secret)) {
       console.warn('[Razorpay Webhook] Invalid signature rejected');
       return NextResponse.json({ error: 'Invalid webhook request' }, { status: 400 });
