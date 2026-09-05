@@ -91,6 +91,13 @@ test.describe('E2E: Authenticated Clinic & Patient Workflows', () => {
     expect(json.error).toBeDefined();
   });
 
+  test('verifies onboarding status API rejects unauthenticated access with 401/403', async ({
+    request,
+  }) => {
+    const res = await request.get('/api/account/onboarding-status');
+    expect([401, 403]).toContain(res.status());
+  });
+
   test('verifies patient export API rejects unauthenticated direct access', async ({
     request,
   }) => {

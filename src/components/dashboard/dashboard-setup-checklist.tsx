@@ -6,8 +6,14 @@ import { useAuth } from '@/hooks/use-auth';
 import { Button } from '@/components/ui/button';
 import { CheckCircle2, Circle, Smartphone, X } from 'lucide-react';
 
-export function DashboardSetupChecklist() {
-  const { account, accountId } = useAuth();
+interface DashboardSetupChecklistProps {
+  onResumeOnboarding?: () => void;
+}
+
+export function DashboardSetupChecklist({
+  onResumeOnboarding,
+}: DashboardSetupChecklistProps = {}) {
+  const { account, accountId, accountRole } = useAuth();
   const [dismissed, setDismissed] = useState(false);
   const [hasWhatsApp, setHasWhatsApp] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -40,6 +46,9 @@ export function DashboardSetupChecklist() {
     }
     checkStatus();
   }, [accountId]);
+
+  // Do not force workspace setup onto invited staff or unauthorized roles
+  if (accountRole !== 'owner' && accountRole !== 'admin') return null;
 
   if (dismissed || loading) return null;
 
@@ -109,8 +118,18 @@ export function DashboardSetupChecklist() {
           </div>
         </div>
 
-        {/* Action Button */}
-        <div>
+        {/* Action Buttons */}
+        <div className="flex flex-wrap items-center gap-2">
+          {onResumeOnboarding && (
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={onResumeOnboarding}
+              className="border-emerald-500/30 bg-emerald-500/10 text-xs font-bold text-emerald-300 hover:bg-emerald-500/20 hover:text-white"
+            >
+              Resume Setup
+            </Button>
+          )}
           {!hasWhatsApp && (
             <Link href="/settings/whatsapp">
               <Button

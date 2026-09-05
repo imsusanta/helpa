@@ -275,7 +275,17 @@ const INDUSTRIES: IndustryOption[] = [
   },
 ];
 
-export function OnboardingOverlay() {
+interface OnboardingOverlayProps {
+  /** Called after successful onboarding completion. Parent should close the overlay. */
+  onComplete?: () => Promise<void>;
+  /** Called when the user chooses to defer onboarding. Parent hides for this session. */
+  onDefer?: () => void;
+}
+
+export function OnboardingOverlay({
+  onComplete,
+  onDefer,
+}: OnboardingOverlayProps = {}) {
   const { account, refreshProfile, refreshModules } = useAuth();
 
   // Active step: 1 to 6
@@ -564,6 +574,8 @@ export function OnboardingOverlay() {
       toast.success('🎉 Your AI Receptionist is now LIVE!');
       await refreshProfile();
       await refreshModules();
+      // Notify parent gate so the overlay closes and does not reappear
+      await onComplete?.();
     } catch (err: unknown) {
       toast.error(
         err instanceof Error ? err.message : 'Error completing setup'
@@ -574,688 +586,740 @@ export function OnboardingOverlay() {
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-black/80 p-4 backdrop-blur-md">
-      <div className="relative w-full max-w-2xl rounded-2xl border border-white/10 bg-[#090D16] p-6 shadow-2xl md:p-8">
-        {/* Step Progress Header */}
-        <div className="mb-6">
-          <div className="text-muted-foreground flex items-center justify-between text-xs font-semibold tracking-wider uppercase">
-            <span>Step {currentStep} of 6</span>
-            <span className="font-bold text-emerald-400">
-              {currentStep === 1 && 'Business Profile'}
-              {currentStep === 2 && 'Services & Prices'}
-              {currentStep === 3 && 'WhatsApp Setup'}
-              {currentStep === 4 && 'AI Greeting'}
-              {currentStep === 5 && 'Test AI Receptionist'}
-              {currentStep === 6 && 'Ready to Go Live'}
-            </span>
+    <div
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="onboarding-step-title"
+      className="fixed inset-0 z-50 overflow-y-auto bg-black/80 p-3 backdrop-blur-md sm:p-6"
+    >
+      <div className="mx-auto my-auto flex min-h-full items-center justify-center">
+        <div className="relative w-full max-w-2xl rounded-2xl border border-white/10 bg-[#090D16] p-5 shadow-2xl sm:p-6 md:p-8">
+          {/* Step Progress Header */}
+          <div className="mb-6">
+            <div className="text-muted-foreground flex items-center justify-between text-xs font-semibold tracking-wider uppercase">
+              <span>Step {currentStep} of 6</span>
+              <span className="font-bold text-emerald-400">
+                {currentStep === 1 && 'Business Profile'}
+                {currentStep === 2 && 'Services & Prices'}
+                {currentStep === 3 && 'WhatsApp Setup'}
+                {currentStep === 4 && 'AI Greeting'}
+                {currentStep === 5 && 'Test AI Receptionist'}
+                {currentStep === 6 && 'Ready to Go Live'}
+              </span>
+            </div>
+
+            {/* Progress Bar */}
+            <div className="mt-2 h-1.5 w-full overflow-hidden rounded-full bg-white/10">
+              <div
+                className="h-full bg-emerald-500 transition-all duration-300 ease-out"
+                style={{ width: `${(currentStep / 6) * 100}%` }}
+              />
+            </div>
           </div>
 
-          {/* Progress Bar */}
-          <div className="mt-2 h-1.5 w-full overflow-hidden rounded-full bg-white/10">
-            <div
-              className="h-full bg-emerald-500 transition-all duration-300 ease-out"
-              style={{ width: `${(currentStep / 6) * 100}%` }}
-            />
-          </div>
-        </div>
-
-        {/* STEP 1: Business Profile */}
-        {currentStep === 1 && (
-          <form
-            onSubmit={handleStep1Submit}
-            className="animate-in fade-in-50 space-y-5 duration-200"
-          >
-            <div>
-              <h2 className="text-xl font-bold text-white">
-                Tell us about your business
-              </h2>
-              <p className="text-muted-foreground mt-1 text-sm">
-                Helpa uses this to personalize your AI Receptionist and customer
-                conversations.
-              </p>
-            </div>
-
-            <div className="space-y-4">
+          {/* STEP 1: Business Profile */}
+          {currentStep === 1 && (
+            <form
+              onSubmit={handleStep1Submit}
+              className="animate-in fade-in-50 space-y-5 duration-200"
+            >
               <div>
-                <Label
-                  htmlFor="bName"
-                  className="text-xs font-semibold text-zinc-300 uppercase"
+                <h2
+                  id="onboarding-step-title"
+                  className="text-xl font-bold text-white"
                 >
-                  Business / Practice Name *
-                </Label>
-                <Input
-                  id="bName"
-                  value={businessName}
-                  onChange={(e) => setBusinessName(e.target.value)}
-                  placeholder="e.g. Dr. Sharma Clinic or Royal Spa"
-                  className="mt-1.5 border-white/10 bg-white/5 text-white"
-                  required
-                />
-              </div>
-
-              <div>
-                <Label className="text-xs font-semibold text-zinc-300 uppercase">
-                  Business Type *
-                </Label>
-                <div className="mt-1.5 grid grid-cols-2 gap-2 sm:grid-cols-3">
-                  {INDUSTRIES.map((ind) => {
-                    const Icon = ind.icon;
-                    const isSelected = selectedIndustry === ind.id;
-                    return (
-                      <button
-                        type="button"
-                        key={ind.id}
-                        onClick={() => setSelectedIndustry(ind.id)}
-                        className={`flex flex-col items-center justify-center rounded-xl border p-3 text-center transition-all ${
-                          isSelected
-                            ? 'border-emerald-500 bg-emerald-500/10 text-white shadow-sm'
-                            : 'border-white/5 bg-white/[0.02] text-zinc-400 hover:border-white/20 hover:text-white'
-                        }`}
-                      >
-                        <Icon
-                          className={`mb-1.5 size-5 ${isSelected ? 'text-emerald-400' : ind.color}`}
-                        />
-                        <span className="text-xs font-medium">{ind.name}</span>
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
-
-              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                <div>
-                  <Label
-                    htmlFor="city"
-                    className="text-xs font-semibold text-zinc-300 uppercase"
-                  >
-                    City / Location
-                  </Label>
-                  <div className="relative mt-1.5">
-                    <MapPin className="absolute top-3 left-3 size-4 text-zinc-400" />
-                    <Input
-                      id="city"
-                      value={city}
-                      onChange={(e) => setCity(e.target.value)}
-                      placeholder="e.g. Mumbai, Kolkata, Delhi"
-                      className="border-white/10 bg-white/5 pl-9 text-white"
-                    />
-                  </div>
-                </div>
-
-                <div>
-                  <Label
-                    htmlFor="hours"
-                    className="text-xs font-semibold text-zinc-300 uppercase"
-                  >
-                    Working Days & Hours
-                  </Label>
-                  <div className="relative mt-1.5">
-                    <Clock className="absolute top-3 left-3 size-4 text-zinc-400" />
-                    <Input
-                      id="hours"
-                      value={workingDays}
-                      onChange={(e) => setWorkingDays(e.target.value)}
-                      placeholder="e.g. Mon - Sat (09:00 AM - 08:00 PM)"
-                      className="border-white/10 bg-white/5 pl-9 text-white"
-                    />
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            <div className="flex justify-end border-t border-white/10 pt-4">
-              <Button
-                type="submit"
-                className="bg-emerald-600 px-6 font-bold text-white hover:bg-emerald-700"
-              >
-                Continue <ArrowRight className="ml-1.5 size-4" />
-              </Button>
-            </div>
-          </form>
-        )}
-
-        {/* STEP 2: Services & Pricing */}
-        {currentStep === 2 && (
-          <form
-            onSubmit={handleStep2Submit}
-            className="animate-in fade-in-50 space-y-5 duration-200"
-          >
-            <div>
-              <h2 className="text-xl font-bold text-white">
-                Tell your AI what you offer
-              </h2>
-              <p className="text-muted-foreground mt-1 text-sm">
-                Add your top services or products so your AI receptionist can
-                accurately quote prices to customers.
-              </p>
-            </div>
-
-            <div className="max-h-[340px] space-y-3 overflow-y-auto pr-1">
-              {services.map((srv, idx) => (
-                <div
-                  key={idx}
-                  className="space-y-2 rounded-xl border border-white/10 bg-white/[0.02] p-3.5"
-                >
-                  <div className="flex items-center justify-between text-xs font-semibold text-zinc-400 uppercase">
-                    <span>Service #{idx + 1}</span>
-                    <span className="text-emerald-400">Price in ₹ INR</span>
-                  </div>
-                  <div className="grid grid-cols-3 gap-2">
-                    <Input
-                      value={srv.name}
-                      onChange={(e) => {
-                        const copy = [...services];
-                        copy[idx].name = e.target.value;
-                        setServices(copy);
-                      }}
-                      placeholder="Service Name (e.g. Haircut / Consultation)"
-                      className="col-span-2 border-white/10 bg-white/5 text-sm text-white"
-                      required={idx === 0}
-                    />
-                    <Input
-                      value={srv.price}
-                      onChange={(e) => {
-                        const copy = [...services];
-                        copy[idx].price = e.target.value;
-                        setServices(copy);
-                      }}
-                      placeholder="₹ Amount"
-                      type="number"
-                      className="border-white/10 bg-white/5 text-sm text-white"
-                      required={idx === 0}
-                    />
-                  </div>
-                  <Input
-                    value={srv.desc}
-                    onChange={(e) => {
-                      const copy = [...services];
-                      copy[idx].desc = e.target.value;
-                      setServices(copy);
-                    }}
-                    placeholder="Short description or duration (optional)"
-                    className="border-white/10 bg-white/5 text-xs text-zinc-300"
-                  />
-                </div>
-              ))}
-            </div>
-
-            <div className="flex items-center justify-between border-t border-white/10 pt-4">
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => setCurrentStep(1)}
-                className="border-white/10 text-zinc-300 hover:text-white"
-              >
-                <ArrowLeft className="mr-1.5 size-4" /> Back
-              </Button>
-              <Button
-                type="submit"
-                className="bg-emerald-600 px-6 font-bold text-white hover:bg-emerald-700"
-              >
-                Continue <ArrowRight className="ml-1.5 size-4" />
-              </Button>
-            </div>
-          </form>
-        )}
-
-        {/* STEP 3: Connect WhatsApp */}
-        {currentStep === 3 && (
-          <div className="animate-in fade-in-50 space-y-5 duration-200">
-            <div>
-              <div className="flex items-center justify-between">
-                <h2 className="text-xl font-bold text-white">
-                  Connect your WhatsApp
+                  Tell us about your business
                 </h2>
-                {whatsappConnected ? (
-                  <span className="inline-flex items-center gap-1 rounded-full border border-emerald-500/20 bg-emerald-500/10 px-2.5 py-1 text-xs font-semibold text-emerald-400">
-                    <CheckCircle2 className="size-3.5" /> Connected
-                  </span>
-                ) : (
-                  <span className="inline-flex items-center gap-1 rounded-full border border-amber-500/20 bg-amber-500/10 px-2.5 py-1 text-xs font-semibold text-amber-400">
-                    <AlertTriangle className="size-3.5" /> Not Connected
-                  </span>
-                )}
+                <p className="text-muted-foreground mt-1 text-sm">
+                  Helpa uses this to personalize your AI Receptionist and
+                  customer conversations.
+                </p>
               </div>
-              <p className="text-muted-foreground mt-1 text-sm">
-                Connect your WhatsApp number so Helpa can automatically answer
-                incoming chats.
-              </p>
-            </div>
 
-            {/* Methods Tab */}
-            <div className="flex rounded-xl border border-white/10 bg-white/5 p-1">
-              <button
-                type="button"
-                onClick={() => setWhatsappTab('embedded')}
-                className={`flex-1 rounded-lg py-1.5 text-xs font-semibold transition-all ${
-                  whatsappTab === 'embedded'
-                    ? 'bg-emerald-600 text-white shadow-sm'
-                    : 'text-zinc-400 hover:text-white'
-                }`}
-              >
-                Meta 1-Click Connect
-              </button>
-              <button
-                type="button"
-                onClick={() => setWhatsappTab('qr')}
-                className={`flex-1 rounded-lg py-1.5 text-xs font-semibold transition-all ${
-                  whatsappTab === 'qr'
-                    ? 'bg-emerald-600 text-white shadow-sm'
-                    : 'text-zinc-400 hover:text-white'
-                }`}
-              >
-                WhatsApp QR Scan
-              </button>
-              <button
-                type="button"
-                onClick={() => setWhatsappTab('manual')}
-                className={`flex-1 rounded-lg py-1.5 text-xs font-semibold transition-all ${
-                  whatsappTab === 'manual'
-                    ? 'bg-emerald-600 text-white shadow-sm'
-                    : 'text-zinc-400 hover:text-white'
-                }`}
-              >
-                Manual API Key
-              </button>
-            </div>
-
-            {/* Tab 1: Embedded Meta */}
-            {whatsappTab === 'embedded' && (
-              <div className="space-y-4 rounded-xl border border-white/10 bg-white/[0.02] p-5 text-center">
-                <Smartphone className="mx-auto size-10 text-emerald-400" />
+              <div className="space-y-4">
                 <div>
-                  <h3 className="text-sm font-bold text-white">
-                    Meta Official Embedded Connection
-                  </h3>
-                  <p className="text-muted-foreground mx-auto mt-1 max-w-sm text-xs">
-                    Log in with Facebook to link your WhatsApp Business number
-                    directly in seconds.
-                  </p>
-                </div>
-                <Button
-                  type="button"
-                  onClick={handleLaunchMetaSignup}
-                  disabled={connectingEmbedded}
-                  className="bg-emerald-600 font-bold text-white hover:bg-emerald-700"
-                >
-                  {connectingEmbedded ? (
-                    <Loader2 className="mr-1.5 size-4 animate-spin" />
-                  ) : (
-                    <Smartphone className="mr-1.5 size-4" />
-                  )}
-                  Connect with WhatsApp Meta
-                </Button>
-              </div>
-            )}
-
-            {/* Tab 2: QR Scanner */}
-            {whatsappTab === 'qr' && (
-              <div className="rounded-xl border border-white/10 bg-white/[0.02] p-4 text-center">
-                <WhatsAppQrPanel />
-              </div>
-            )}
-
-            {/* Tab 3: Manual API */}
-            {whatsappTab === 'manual' && (
-              <div className="space-y-3 rounded-xl border border-white/10 bg-white/[0.02] p-4">
-                <div>
-                  <Label className="text-xs text-zinc-300">
-                    Phone Number ID
-                  </Label>
-                  <Input
-                    value={phoneId}
-                    onChange={(e) => setPhoneId(e.target.value)}
-                    placeholder="e.g. 104829104829104"
-                    className="mt-1 border-white/10 bg-white/5 text-xs text-white"
-                  />
-                </div>
-                <div>
-                  <Label className="text-xs text-zinc-300">
-                    WhatsApp Business Account ID (WABA ID)
-                  </Label>
-                  <Input
-                    value={wabaId}
-                    onChange={(e) => setWabaId(e.target.value)}
-                    placeholder="e.g. 984729104829104"
-                    className="mt-1 border-white/10 bg-white/5 text-xs text-white"
-                  />
-                </div>
-                <div>
-                  <Label className="text-xs text-zinc-300">
-                    Permanent Access Token
-                  </Label>
-                  <Input
-                    value={token}
-                    onChange={(e) => setToken(e.target.value)}
-                    placeholder="EAAB..."
-                    type="password"
-                    className="mt-1 border-white/10 bg-white/5 text-xs text-white"
-                  />
-                </div>
-                <Button
-                  type="button"
-                  onClick={handleSaveManualWhatsApp}
-                  disabled={connectingEmbedded}
-                  className="w-full bg-emerald-600 font-bold text-white hover:bg-emerald-700"
-                >
-                  Save & Connect
-                </Button>
-              </div>
-            )}
-
-            <div className="flex items-center justify-between border-t border-white/10 pt-4">
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => setCurrentStep(2)}
-                className="border-white/10 text-zinc-300 hover:text-white"
-              >
-                <ArrowLeft className="mr-1.5 size-4" /> Back
-              </Button>
-              <div className="flex items-center gap-2">
-                {!whatsappConnected && (
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    onClick={() => {
-                      toast.info('You can connect WhatsApp later in Settings.');
-                      setCurrentStep(4);
-                    }}
-                    className="text-xs text-zinc-400 hover:text-white"
+                  <Label
+                    htmlFor="bName"
+                    className="text-xs font-semibold text-zinc-300 uppercase"
                   >
-                    Skip for now
-                  </Button>
-                )}
+                    Business / Practice Name *
+                  </Label>
+                  <Input
+                    id="bName"
+                    value={businessName}
+                    onChange={(e) => setBusinessName(e.target.value)}
+                    placeholder="e.g. Dr. Sharma Clinic or Royal Spa"
+                    className="mt-1.5 border-white/10 bg-white/5 text-white"
+                    required
+                  />
+                </div>
+
+                <div>
+                  <Label className="text-xs font-semibold text-zinc-300 uppercase">
+                    Business Type *
+                  </Label>
+                  <div className="mt-1.5 grid grid-cols-2 gap-2 sm:grid-cols-3">
+                    {INDUSTRIES.map((ind) => {
+                      const Icon = ind.icon;
+                      const isSelected = selectedIndustry === ind.id;
+                      return (
+                        <button
+                          type="button"
+                          key={ind.id}
+                          aria-pressed={isSelected}
+                          onClick={() => setSelectedIndustry(ind.id)}
+                          className={`flex flex-col items-center justify-center rounded-xl border p-3 text-center transition-all ${
+                            isSelected
+                              ? 'border-emerald-500 bg-emerald-500/10 text-white shadow-sm'
+                              : 'border-white/5 bg-white/[0.02] text-zinc-400 hover:border-white/20 hover:text-white'
+                          }`}
+                        >
+                          <Icon
+                            className={`mb-1.5 size-5 ${isSelected ? 'text-emerald-400' : ind.color}`}
+                          />
+                          <span className="text-xs font-medium">
+                            {ind.name}
+                          </span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                  <div>
+                    <Label
+                      htmlFor="city"
+                      className="text-xs font-semibold text-zinc-300 uppercase"
+                    >
+                      City / Location
+                    </Label>
+                    <div className="relative mt-1.5">
+                      <MapPin className="absolute top-3 left-3 size-4 text-zinc-400" />
+                      <Input
+                        id="city"
+                        value={city}
+                        onChange={(e) => setCity(e.target.value)}
+                        placeholder="e.g. Mumbai, Kolkata, Delhi"
+                        className="border-white/10 bg-white/5 pl-9 text-white"
+                      />
+                    </div>
+                  </div>
+
+                  <div>
+                    <Label
+                      htmlFor="hours"
+                      className="text-xs font-semibold text-zinc-300 uppercase"
+                    >
+                      Working Days & Hours
+                    </Label>
+                    <div className="relative mt-1.5">
+                      <Clock className="absolute top-3 left-3 size-4 text-zinc-400" />
+                      <Input
+                        id="hours"
+                        value={workingDays}
+                        onChange={(e) => setWorkingDays(e.target.value)}
+                        placeholder="e.g. Mon - Sat (09:00 AM - 08:00 PM)"
+                        className="border-white/10 bg-white/5 pl-9 text-white"
+                      />
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex justify-end border-t border-white/10 pt-4">
                 <Button
-                  type="button"
-                  onClick={() => setCurrentStep(4)}
+                  type="submit"
                   className="bg-emerald-600 px-6 font-bold text-white hover:bg-emerald-700"
                 >
                   Continue <ArrowRight className="ml-1.5 size-4" />
                 </Button>
               </div>
-            </div>
-          </div>
-        )}
+            </form>
+          )}
 
-        {/* STEP 4: AI Receptionist Greeting */}
-        {currentStep === 4 && (
-          <div className="animate-in fade-in-50 space-y-5 duration-200">
-            <div>
-              <h2 className="text-xl font-bold text-white">
-                Configure your AI Receptionist
-              </h2>
-              <p className="text-muted-foreground mt-1 text-sm">
-                Personalize how your AI greets customers when they text you on
-                WhatsApp.
-              </p>
-            </div>
-
-            <div className="space-y-4">
+          {/* STEP 2: Services & Pricing */}
+          {currentStep === 2 && (
+            <form
+              onSubmit={handleStep2Submit}
+              className="animate-in fade-in-50 space-y-5 duration-200"
+            >
               <div>
-                <Label
-                  htmlFor="greeting"
-                  className="text-xs font-semibold text-zinc-300 uppercase"
+                <h2
+                  id="onboarding-step-title"
+                  className="text-xl font-bold text-white"
                 >
-                  Welcome Greeting Message
-                </Label>
-                <Textarea
-                  id="greeting"
-                  rows={3}
-                  value={welcomeMessage}
-                  onChange={(e) => setWelcomeMessage(e.target.value)}
-                  placeholder="Namaste! Welcome to our practice. How can I help you today?"
-                  className="mt-1.5 border-white/10 bg-white/5 text-sm text-white"
-                />
-              </div>
-
-              {/* Summary Card */}
-              <div className="space-y-2 rounded-xl border border-white/10 bg-white/[0.02] p-4 text-xs">
-                <div className="flex items-center justify-between font-medium text-zinc-400">
-                  <span>Business</span>
-                  <span className="font-bold text-white">
-                    {businessName || 'My Practice'}
-                  </span>
-                </div>
-                <div className="flex items-center justify-between font-medium text-zinc-400">
-                  <span>Industry Type</span>
-                  <span className="font-semibold text-emerald-400">
-                    {activeIndustryData.name}
-                  </span>
-                </div>
-                <div className="flex items-center justify-between font-medium text-zinc-400">
-                  <span>Hours</span>
-                  <span className="text-white">{workingDays}</span>
-                </div>
-                <div className="flex items-center justify-between font-medium text-zinc-400">
-                  <span>Multilingual Support</span>
-                  <span className="font-semibold text-emerald-400">
-                    Auto-detect (Hindi, Bengali, English, Hinglish)
-                  </span>
-                </div>
-              </div>
-            </div>
-
-            <div className="flex items-center justify-between border-t border-white/10 pt-4">
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => setCurrentStep(3)}
-                className="border-white/10 text-zinc-300 hover:text-white"
-              >
-                <ArrowLeft className="mr-1.5 size-4" /> Back
-              </Button>
-              <Button
-                type="button"
-                onClick={() => setCurrentStep(5)}
-                className="bg-emerald-600 px-6 font-bold text-white hover:bg-emerald-700"
-              >
-                Continue to Test AI <ArrowRight className="ml-1.5 size-4" />
-              </Button>
-            </div>
-          </div>
-        )}
-
-        {/* STEP 5: Test AI Chat Simulator */}
-        {currentStep === 5 && (
-          <div className="animate-in fade-in-50 space-y-5 duration-200">
-            <div>
-              <div className="flex items-center justify-between">
-                <h2 className="text-xl font-bold text-white">
-                  Test your AI Receptionist
+                  Tell your AI what you offer
                 </h2>
-                {hasTestedAi && (
-                  <span className="inline-flex items-center gap-1 rounded-full border border-emerald-500/20 bg-emerald-500/10 px-2.5 py-1 text-xs font-semibold text-emerald-400">
-                    <CheckCircle2 className="size-3.5" /> AI Tested
-                  </span>
-                )}
+                <p className="text-muted-foreground mt-1 text-sm">
+                  Add your top services or products so your AI receptionist can
+                  accurately quote prices to customers.
+                </p>
               </div>
-              <p className="text-muted-foreground mt-1 text-sm">
-                Ask a sample question just like one of your customers.
-              </p>
-            </div>
 
-            {/* Quick Sample Question Chips */}
-            <div className="flex flex-wrap gap-1.5">
-              {activeIndustryData.sampleQuestions.map((q, i) => (
-                <button
-                  key={i}
-                  type="button"
-                  onClick={() => handleSendTestMessage(q)}
-                  disabled={testingAi}
-                  className="rounded-full border border-white/10 bg-white/5 px-2.5 py-1 text-left text-xs text-zinc-300 transition-all hover:border-emerald-500/50 hover:bg-emerald-500/10 hover:text-emerald-300"
-                >
-                  &ldquo;{q}&rdquo;
-                </button>
-              ))}
-            </div>
-
-            {/* Chat Simulator Box */}
-            <div className="h-52 space-y-3 overflow-y-auto rounded-xl border border-white/10 bg-black/40 p-3.5">
-              {chatMessages.length === 0 ? (
-                <div className="flex h-full flex-col items-center justify-center text-center text-xs text-zinc-500">
-                  <Bot className="mb-1 size-8 text-emerald-500/40" />
-                  <p>
-                    Click a suggested question above or type below to test your
-                    AI receptionist.
-                  </p>
-                </div>
-              ) : (
-                chatMessages.map((m, idx) => (
+              <div className="max-h-[340px] space-y-3 overflow-y-auto pr-1">
+                {services.map((srv, idx) => (
                   <div
                     key={idx}
-                    className={`flex ${m.role === 'user' ? 'justify-end' : 'justify-start'}`}
+                    className="space-y-2 rounded-xl border border-white/10 bg-white/[0.02] p-3.5"
                   >
-                    <div
-                      className={`max-w-[85%] rounded-2xl px-3.5 py-2 text-xs ${
-                        m.role === 'user'
-                          ? 'rounded-br-none bg-emerald-600 text-white'
-                          : 'rounded-bl-none bg-white/10 text-zinc-200'
-                      }`}
-                    >
-                      {m.text}
+                    <div className="flex items-center justify-between text-xs font-semibold text-zinc-400 uppercase">
+                      <span>Service #{idx + 1}</span>
+                      <span className="text-emerald-400">Price in ₹ INR</span>
                     </div>
+                    <div className="grid grid-cols-3 gap-2">
+                      <Input
+                        value={srv.name}
+                        onChange={(e) => {
+                          const copy = [...services];
+                          copy[idx].name = e.target.value;
+                          setServices(copy);
+                        }}
+                        placeholder="Service Name (e.g. Haircut / Consultation)"
+                        className="col-span-2 border-white/10 bg-white/5 text-sm text-white"
+                        required={idx === 0}
+                      />
+                      <Input
+                        value={srv.price}
+                        onChange={(e) => {
+                          const copy = [...services];
+                          copy[idx].price = e.target.value;
+                          setServices(copy);
+                        }}
+                        placeholder="₹ Amount"
+                        type="number"
+                        className="border-white/10 bg-white/5 text-sm text-white"
+                        required={idx === 0}
+                      />
+                    </div>
+                    <Input
+                      value={srv.desc}
+                      onChange={(e) => {
+                        const copy = [...services];
+                        copy[idx].desc = e.target.value;
+                        setServices(copy);
+                      }}
+                      placeholder="Short description or duration (optional)"
+                      className="border-white/10 bg-white/5 text-xs text-zinc-300"
+                    />
                   </div>
-                ))
-              )}
-              {testingAi && (
-                <div className="flex items-center gap-2 text-xs text-emerald-400">
-                  <Loader2 className="size-3.5 animate-spin" /> AI Receptionist
-                  is replying...
+                ))}
+              </div>
+
+              <div className="flex items-center justify-between border-t border-white/10 pt-4">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => setCurrentStep(1)}
+                  className="border-white/10 text-zinc-300 hover:text-white"
+                >
+                  <ArrowLeft className="mr-1.5 size-4" /> Back
+                </Button>
+                <Button
+                  type="submit"
+                  className="bg-emerald-600 px-6 font-bold text-white hover:bg-emerald-700"
+                >
+                  Continue <ArrowRight className="ml-1.5 size-4" />
+                </Button>
+              </div>
+            </form>
+          )}
+
+          {/* STEP 3: Connect WhatsApp */}
+          {currentStep === 3 && (
+            <div className="animate-in fade-in-50 space-y-5 duration-200">
+              <div>
+                <div className="flex items-center justify-between">
+                  <h2
+                    id="onboarding-step-title"
+                    className="text-xl font-bold text-white"
+                  >
+                    Connect your WhatsApp
+                  </h2>
+                  {whatsappConnected ? (
+                    <span className="inline-flex items-center gap-1 rounded-full border border-emerald-500/20 bg-emerald-500/10 px-2.5 py-1 text-xs font-semibold text-emerald-400">
+                      <CheckCircle2 className="size-3.5" /> Connected
+                    </span>
+                  ) : (
+                    <span className="inline-flex items-center gap-1 rounded-full border border-amber-500/20 bg-amber-500/10 px-2.5 py-1 text-xs font-semibold text-amber-400">
+                      <AlertTriangle className="size-3.5" /> Not Connected
+                    </span>
+                  )}
+                </div>
+                <p className="text-muted-foreground mt-1 text-sm">
+                  Connect your WhatsApp number so Helpa can automatically answer
+                  incoming chats.
+                </p>
+              </div>
+
+              {/* Methods Tab */}
+              <div className="flex rounded-xl border border-white/10 bg-white/5 p-1">
+                <button
+                  type="button"
+                  onClick={() => setWhatsappTab('embedded')}
+                  className={`flex-1 rounded-lg py-1.5 text-xs font-semibold transition-all ${
+                    whatsappTab === 'embedded'
+                      ? 'bg-emerald-600 text-white shadow-sm'
+                      : 'text-zinc-400 hover:text-white'
+                  }`}
+                >
+                  Meta 1-Click Connect
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setWhatsappTab('qr')}
+                  className={`flex-1 rounded-lg py-1.5 text-xs font-semibold transition-all ${
+                    whatsappTab === 'qr'
+                      ? 'bg-emerald-600 text-white shadow-sm'
+                      : 'text-zinc-400 hover:text-white'
+                  }`}
+                >
+                  WhatsApp QR Scan
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setWhatsappTab('manual')}
+                  className={`flex-1 rounded-lg py-1.5 text-xs font-semibold transition-all ${
+                    whatsappTab === 'manual'
+                      ? 'bg-emerald-600 text-white shadow-sm'
+                      : 'text-zinc-400 hover:text-white'
+                  }`}
+                >
+                  Manual API Key
+                </button>
+              </div>
+
+              {/* Tab 1: Embedded Meta */}
+              {whatsappTab === 'embedded' && (
+                <div className="space-y-4 rounded-xl border border-white/10 bg-white/[0.02] p-5 text-center">
+                  <Smartphone className="mx-auto size-10 text-emerald-400" />
+                  <div>
+                    <h3 className="text-sm font-bold text-white">
+                      Meta Official Embedded Connection
+                    </h3>
+                    <p className="text-muted-foreground mx-auto mt-1 max-w-sm text-xs">
+                      Log in with Facebook to link your WhatsApp Business number
+                      directly in seconds.
+                    </p>
+                  </div>
+                  <Button
+                    type="button"
+                    onClick={handleLaunchMetaSignup}
+                    disabled={connectingEmbedded}
+                    className="bg-emerald-600 font-bold text-white hover:bg-emerald-700"
+                  >
+                    {connectingEmbedded ? (
+                      <Loader2 className="mr-1.5 size-4 animate-spin" />
+                    ) : (
+                      <Smartphone className="mr-1.5 size-4" />
+                    )}
+                    Connect with WhatsApp Meta
+                  </Button>
                 </div>
               )}
-            </div>
 
-            {/* Message Input */}
-            <div className="flex gap-2">
-              <Input
-                value={inputMsg}
-                onChange={(e) => setInputMsg(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter') handleSendTestMessage();
-                }}
-                placeholder="Type a customer question..."
-                className="border-white/10 bg-white/5 text-sm text-white"
-              />
-              <Button
-                type="button"
-                onClick={() => handleSendTestMessage()}
-                disabled={testingAi || !inputMsg.trim()}
-                className="bg-emerald-600 text-white hover:bg-emerald-700"
-              >
-                <Send className="size-4" />
-              </Button>
-            </div>
+              {/* Tab 2: QR Scanner */}
+              {whatsappTab === 'qr' && (
+                <div className="rounded-xl border border-white/10 bg-white/[0.02] p-4 text-center">
+                  <WhatsAppQrPanel
+                    onConnectionSuccess={() => setWhatsappConnected(true)}
+                  />
+                </div>
+              )}
 
-            <div className="flex items-center justify-between border-t border-white/10 pt-4">
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => setCurrentStep(4)}
-                className="border-white/10 text-zinc-300 hover:text-white"
-              >
-                <ArrowLeft className="mr-1.5 size-4" /> Back
-              </Button>
-              <Button
-                type="button"
-                onClick={() => setCurrentStep(6)}
-                className="bg-emerald-600 px-6 font-bold text-white hover:bg-emerald-700"
-              >
-                Review & Go Live <ArrowRight className="ml-1.5 size-4" />
-              </Button>
-            </div>
-          </div>
-        )}
+              {/* Tab 3: Manual API */}
+              {whatsappTab === 'manual' && (
+                <div className="space-y-3 rounded-xl border border-white/10 bg-white/[0.02] p-4">
+                  <div>
+                    <Label className="text-xs text-zinc-300">
+                      Phone Number ID
+                    </Label>
+                    <Input
+                      value={phoneId}
+                      onChange={(e) => setPhoneId(e.target.value)}
+                      placeholder="e.g. 104829104829104"
+                      className="mt-1 border-white/10 bg-white/5 text-xs text-white"
+                    />
+                  </div>
+                  <div>
+                    <Label className="text-xs text-zinc-300">
+                      WhatsApp Business Account ID (WABA ID)
+                    </Label>
+                    <Input
+                      value={wabaId}
+                      onChange={(e) => setWabaId(e.target.value)}
+                      placeholder="e.g. 984729104829104"
+                      className="mt-1 border-white/10 bg-white/5 text-xs text-white"
+                    />
+                  </div>
+                  <div>
+                    <Label className="text-xs text-zinc-300">
+                      Permanent Access Token
+                    </Label>
+                    <Input
+                      value={token}
+                      onChange={(e) => setToken(e.target.value)}
+                      placeholder="EAAB..."
+                      type="password"
+                      className="mt-1 border-white/10 bg-white/5 text-xs text-white"
+                    />
+                  </div>
+                  <Button
+                    type="button"
+                    onClick={handleSaveManualWhatsApp}
+                    disabled={connectingEmbedded}
+                    className="w-full bg-emerald-600 font-bold text-white hover:bg-emerald-700"
+                  >
+                    Save & Connect
+                  </Button>
+                </div>
+              )}
 
-        {/* STEP 6: Final Review & Go Live */}
-        {currentStep === 6 && (
-          <div className="animate-in fade-in-50 space-y-5 duration-200">
-            <div>
-              <h2 className="text-xl font-bold text-white">
-                🚀 Ready to Go Live!
-              </h2>
-              <p className="text-muted-foreground mt-1 text-sm">
-                Review your setup checklist and launch your AI Receptionist.
-              </p>
-            </div>
-
-            <div className="space-y-2.5 rounded-xl border border-white/10 bg-white/[0.02] p-4 text-xs">
-              <div className="flex items-center justify-between border-b border-white/5 py-1.5">
-                <span className="flex items-center gap-2 text-zinc-300">
-                  <CheckCircle2 className="size-4 text-emerald-400" /> Business
-                  Profile
-                </span>
-                <span className="font-semibold text-white">{businessName}</span>
-              </div>
-              <div className="flex items-center justify-between border-b border-white/5 py-1.5">
-                <span className="flex items-center gap-2 text-zinc-300">
-                  <CheckCircle2 className="size-4 text-emerald-400" /> Services
-                  Configured
-                </span>
-                <span className="font-semibold text-emerald-400">
-                  {services.filter((s) => s.name).length} Services
-                </span>
-              </div>
-              <div className="flex items-center justify-between border-b border-white/5 py-1.5">
-                <span className="flex items-center gap-2 text-zinc-300">
-                  <CheckCircle2 className="size-4 text-emerald-400" /> AI
-                  Receptionist Greeting
-                </span>
-                <span className="text-white">Configured</span>
-              </div>
-              <div className="flex items-center justify-between border-b border-white/5 py-1.5">
-                <span className="flex items-center gap-2 text-zinc-300">
-                  <CheckCircle2 className="size-4 text-emerald-400" /> AI
-                  Testing
-                </span>
-                <span className="font-semibold text-emerald-400">Passed</span>
-              </div>
-              <div className="flex items-center justify-between py-1.5">
-                <span className="flex items-center gap-2 text-zinc-300">
-                  {whatsappConnected ? (
-                    <CheckCircle2 className="size-4 text-emerald-400" />
-                  ) : (
-                    <AlertTriangle className="size-4 text-amber-400" />
-                  )}
-                  WhatsApp Connection
-                </span>
-                <span
-                  className={
-                    whatsappConnected
-                      ? 'font-semibold text-emerald-400'
-                      : 'text-amber-400'
-                  }
+              <div className="flex items-center justify-between border-t border-white/10 pt-4">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => setCurrentStep(2)}
+                  className="border-white/10 text-zinc-300 hover:text-white"
                 >
-                  {whatsappConnected
-                    ? 'Connected'
-                    : 'Pending (Connect in Settings)'}
-                </span>
+                  <ArrowLeft className="mr-1.5 size-4" /> Back
+                </Button>
+                <div className="flex items-center gap-2">
+                  {!whatsappConnected && (
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      onClick={() => {
+                        toast.info(
+                          'You can connect WhatsApp later in Settings.'
+                        );
+                        setCurrentStep(4);
+                      }}
+                      className="text-xs text-zinc-400 hover:text-white"
+                    >
+                      Skip for now
+                    </Button>
+                  )}
+                  <Button
+                    type="button"
+                    onClick={() => setCurrentStep(4)}
+                    className="bg-emerald-600 px-6 font-bold text-white hover:bg-emerald-700"
+                  >
+                    Continue <ArrowRight className="ml-1.5 size-4" />
+                  </Button>
+                </div>
               </div>
             </div>
+          )}
 
-            <div className="flex items-center justify-between border-t border-white/10 pt-4">
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => setCurrentStep(5)}
-                className="border-white/10 text-zinc-300 hover:text-white"
-              >
-                <ArrowLeft className="mr-1.5 size-4" /> Back
-              </Button>
-              <Button
-                type="button"
-                onClick={handleCompleteGoLive}
-                disabled={saving}
-                className="bg-emerald-600 px-8 font-bold text-white shadow-lg shadow-emerald-500/20 hover:bg-emerald-700"
-              >
-                {saving ? (
-                  <Loader2 className="mr-1.5 size-4 animate-spin" />
-                ) : null}
-                Go Live & Open Dashboard
-              </Button>
+          {/* STEP 4: AI Receptionist Greeting */}
+          {currentStep === 4 && (
+            <div className="animate-in fade-in-50 space-y-5 duration-200">
+              <div>
+                <h2
+                  id="onboarding-step-title"
+                  className="text-xl font-bold text-white"
+                >
+                  Configure your AI Receptionist
+                </h2>
+                <p className="text-muted-foreground mt-1 text-sm">
+                  Personalize how your AI greets customers when they text you on
+                  WhatsApp.
+                </p>
+              </div>
+
+              <div className="space-y-4">
+                <div>
+                  <Label
+                    htmlFor="greeting"
+                    className="text-xs font-semibold text-zinc-300 uppercase"
+                  >
+                    Welcome Greeting Message
+                  </Label>
+                  <Textarea
+                    id="greeting"
+                    rows={3}
+                    value={welcomeMessage}
+                    onChange={(e) => setWelcomeMessage(e.target.value)}
+                    placeholder="Namaste! Welcome to our practice. How can I help you today?"
+                    className="mt-1.5 border-white/10 bg-white/5 text-sm text-white"
+                  />
+                </div>
+
+                {/* Summary Card */}
+                <div className="space-y-2 rounded-xl border border-white/10 bg-white/[0.02] p-4 text-xs">
+                  <div className="flex items-center justify-between font-medium text-zinc-400">
+                    <span>Business</span>
+                    <span className="font-bold text-white">
+                      {businessName || 'My Practice'}
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between font-medium text-zinc-400">
+                    <span>Industry Type</span>
+                    <span className="font-semibold text-emerald-400">
+                      {activeIndustryData.name}
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between font-medium text-zinc-400">
+                    <span>Hours</span>
+                    <span className="text-white">{workingDays}</span>
+                  </div>
+                  <div className="flex items-center justify-between font-medium text-zinc-400">
+                    <span>Multilingual Support</span>
+                    <span className="font-semibold text-emerald-400">
+                      Auto-detect (Hindi, Bengali, English, Hinglish)
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex items-center justify-between border-t border-white/10 pt-4">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => setCurrentStep(3)}
+                  className="border-white/10 text-zinc-300 hover:text-white"
+                >
+                  <ArrowLeft className="mr-1.5 size-4" /> Back
+                </Button>
+                <Button
+                  type="button"
+                  onClick={() => setCurrentStep(5)}
+                  className="bg-emerald-600 px-6 font-bold text-white hover:bg-emerald-700"
+                >
+                  Continue to Test AI <ArrowRight className="ml-1.5 size-4" />
+                </Button>
+              </div>
             </div>
-          </div>
-        )}
+          )}
+
+          {/* STEP 5: Test AI Chat Simulator */}
+          {currentStep === 5 && (
+            <div className="animate-in fade-in-50 space-y-5 duration-200">
+              <div>
+                <div className="flex items-center justify-between">
+                  <h2
+                    id="onboarding-step-title"
+                    className="text-xl font-bold text-white"
+                  >
+                    Test your AI Receptionist
+                  </h2>
+                  {hasTestedAi && (
+                    <span className="inline-flex items-center gap-1 rounded-full border border-emerald-500/20 bg-emerald-500/10 px-2.5 py-1 text-xs font-semibold text-emerald-400">
+                      <CheckCircle2 className="size-3.5" /> AI Tested
+                    </span>
+                  )}
+                </div>
+                <p className="text-muted-foreground mt-1 text-sm">
+                  Ask a sample question just like one of your customers.
+                </p>
+              </div>
+
+              {/* Quick Sample Question Chips */}
+              <div className="flex flex-wrap gap-1.5">
+                {activeIndustryData.sampleQuestions.map((q, i) => (
+                  <button
+                    key={i}
+                    type="button"
+                    onClick={() => handleSendTestMessage(q)}
+                    disabled={testingAi}
+                    className="rounded-full border border-white/10 bg-white/5 px-2.5 py-1 text-left text-xs text-zinc-300 transition-all hover:border-emerald-500/50 hover:bg-emerald-500/10 hover:text-emerald-300"
+                  >
+                    &ldquo;{q}&rdquo;
+                  </button>
+                ))}
+              </div>
+
+              {/* Chat Simulator Box */}
+              <div className="h-52 space-y-3 overflow-y-auto rounded-xl border border-white/10 bg-black/40 p-3.5">
+                {chatMessages.length === 0 ? (
+                  <div className="flex h-full flex-col items-center justify-center text-center text-xs text-zinc-500">
+                    <Bot className="mb-1 size-8 text-emerald-500/40" />
+                    <p>
+                      Click a suggested question above or type below to test
+                      your AI receptionist.
+                    </p>
+                  </div>
+                ) : (
+                  chatMessages.map((m, idx) => (
+                    <div
+                      key={idx}
+                      className={`flex ${m.role === 'user' ? 'justify-end' : 'justify-start'}`}
+                    >
+                      <div
+                        className={`max-w-[85%] rounded-2xl px-3.5 py-2 text-xs ${
+                          m.role === 'user'
+                            ? 'rounded-br-none bg-emerald-600 text-white'
+                            : 'rounded-bl-none bg-white/10 text-zinc-200'
+                        }`}
+                      >
+                        {m.text}
+                      </div>
+                    </div>
+                  ))
+                )}
+                {testingAi && (
+                  <div className="flex items-center gap-2 text-xs text-emerald-400">
+                    <Loader2 className="size-3.5 animate-spin" /> AI
+                    Receptionist is replying...
+                  </div>
+                )}
+              </div>
+
+              {/* Message Input */}
+              <div className="flex gap-2">
+                <Input
+                  value={inputMsg}
+                  onChange={(e) => setInputMsg(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') handleSendTestMessage();
+                  }}
+                  placeholder="Type a customer question..."
+                  className="border-white/10 bg-white/5 text-sm text-white"
+                />
+                <Button
+                  type="button"
+                  onClick={() => handleSendTestMessage()}
+                  disabled={testingAi || !inputMsg.trim()}
+                  className="bg-emerald-600 text-white hover:bg-emerald-700"
+                >
+                  <Send className="size-4" />
+                </Button>
+              </div>
+
+              <div className="flex items-center justify-between border-t border-white/10 pt-4">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => setCurrentStep(4)}
+                  className="border-white/10 text-zinc-300 hover:text-white"
+                >
+                  <ArrowLeft className="mr-1.5 size-4" /> Back
+                </Button>
+                <Button
+                  type="button"
+                  onClick={() => setCurrentStep(6)}
+                  className="bg-emerald-600 px-6 font-bold text-white hover:bg-emerald-700"
+                >
+                  Review & Go Live <ArrowRight className="ml-1.5 size-4" />
+                </Button>
+              </div>
+            </div>
+          )}
+
+          {/* STEP 6: Final Review & Go Live */}
+          {currentStep === 6 && (
+            <div className="animate-in fade-in-50 space-y-5 duration-200">
+              <div>
+                <h2
+                  id="onboarding-step-title"
+                  className="text-xl font-bold text-white"
+                >
+                  🚀 Ready to Go Live!
+                </h2>
+                <p className="text-muted-foreground mt-1 text-sm">
+                  Review your setup checklist and launch your AI Receptionist.
+                </p>
+              </div>
+
+              <div className="space-y-2.5 rounded-xl border border-white/10 bg-white/[0.02] p-4 text-xs">
+                <div className="flex items-center justify-between border-b border-white/5 py-1.5">
+                  <span className="flex items-center gap-2 text-zinc-300">
+                    <CheckCircle2 className="size-4 text-emerald-400" />{' '}
+                    Business Profile
+                  </span>
+                  <span className="font-semibold text-white">
+                    {businessName}
+                  </span>
+                </div>
+                <div className="flex items-center justify-between border-b border-white/5 py-1.5">
+                  <span className="flex items-center gap-2 text-zinc-300">
+                    <CheckCircle2 className="size-4 text-emerald-400" />{' '}
+                    Services Configured
+                  </span>
+                  <span className="font-semibold text-emerald-400">
+                    {services.filter((s) => s.name).length} Services
+                  </span>
+                </div>
+                <div className="flex items-center justify-between border-b border-white/5 py-1.5">
+                  <span className="flex items-center gap-2 text-zinc-300">
+                    <CheckCircle2 className="size-4 text-emerald-400" /> AI
+                    Receptionist Greeting
+                  </span>
+                  <span className="text-white">Configured</span>
+                </div>
+                <div className="flex items-center justify-between border-b border-white/5 py-1.5">
+                  <span className="flex items-center gap-2 text-zinc-300">
+                    <CheckCircle2 className="size-4 text-emerald-400" /> AI
+                    Testing
+                  </span>
+                  <span className="font-semibold text-emerald-400">Passed</span>
+                </div>
+                <div className="flex items-center justify-between py-1.5">
+                  <span className="flex items-center gap-2 text-zinc-300">
+                    {whatsappConnected ? (
+                      <CheckCircle2 className="size-4 text-emerald-400" />
+                    ) : (
+                      <AlertTriangle className="size-4 text-amber-400" />
+                    )}
+                    WhatsApp Connection
+                  </span>
+                  <span
+                    className={
+                      whatsappConnected
+                        ? 'font-semibold text-emerald-400'
+                        : 'text-amber-400'
+                    }
+                  >
+                    {whatsappConnected
+                      ? 'Connected'
+                      : 'Pending (Connect in Settings)'}
+                  </span>
+                </div>
+              </div>
+
+              <div className="flex items-center justify-between border-t border-white/10 pt-4">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => setCurrentStep(5)}
+                  className="border-white/10 text-zinc-300 hover:text-white"
+                >
+                  <ArrowLeft className="mr-1.5 size-4" /> Back
+                </Button>
+                <div className="flex items-center gap-2">
+                  {onDefer && (
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      onClick={() => {
+                        toast.info(
+                          'You can resume setup anytime from the dashboard.'
+                        );
+                        onDefer();
+                      }}
+                      disabled={saving}
+                      className="text-xs text-zinc-400 hover:text-white"
+                    >
+                      Finish later
+                    </Button>
+                  )}
+                  <Button
+                    type="button"
+                    onClick={handleCompleteGoLive}
+                    disabled={saving}
+                    className="bg-emerald-600 px-8 font-bold text-white shadow-lg shadow-emerald-500/20 hover:bg-emerald-700"
+                  >
+                    {saving ? (
+                      <Loader2 className="mr-1.5 size-4 animate-spin" />
+                    ) : null}
+                    Go Live & Open Dashboard
+                  </Button>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );

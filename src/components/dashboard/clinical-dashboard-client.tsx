@@ -85,7 +85,13 @@ function MetricCard({
   return href ? <Link href={href}>{card}</Link> : card;
 }
 
-export function ClinicalDashboardClient() {
+interface ClinicalDashboardClientProps {
+  onResumeOnboarding?: () => void;
+}
+
+export function ClinicalDashboardClient({
+  onResumeOnboarding,
+}: ClinicalDashboardClientProps = {}) {
   const { accountId } = useAuth();
 
   const [loading, setLoading] = useState(true);
@@ -375,7 +381,7 @@ export function ClinicalDashboardClient() {
       </section>
 
       {/* Setup Onboarding Checklist */}
-      <DashboardSetupChecklist />
+      <DashboardSetupChecklist onResumeOnboarding={onResumeOnboarding} />
 
       {/* What needs your attention section */}
       {(stats.pendingAppointments > 0 ||

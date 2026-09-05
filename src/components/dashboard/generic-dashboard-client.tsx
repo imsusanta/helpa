@@ -17,6 +17,7 @@ import {
 import { useAuth } from '@/hooks/use-auth';
 import { useWorkspace } from '@/hooks/use-workspace';
 import type { LeadSourceSlice } from '@/lib/dashboard/lead-sources';
+import { DashboardSetupChecklist } from './dashboard-setup-checklist';
 
 const metricCards = [
   {
@@ -179,7 +180,13 @@ interface CachedMetricsData {
 const metricsCache = new Map<string, CachedMetricsData>();
 const METRICS_CACHE_TTL_MS = 60_000; // 1 minute
 
-export function GenericDashboardClient() {
+interface GenericDashboardClientProps {
+  onResumeOnboarding?: () => void;
+}
+
+export function GenericDashboardClient({
+  onResumeOnboarding,
+}: GenericDashboardClientProps = {}) {
   const { terminology, isRouteAllowed } = useWorkspace();
   const { account, accountId, profile } = useAuth();
   const [range, setRange] = useState('30d');
@@ -332,6 +339,8 @@ export function GenericDashboardClient() {
           </select>
         </div>
       </div>
+
+      <DashboardSetupChecklist onResumeOnboarding={onResumeOnboarding} />
 
       <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 xl:grid-cols-4">
         {contextualMetricCards.map((card) => {
