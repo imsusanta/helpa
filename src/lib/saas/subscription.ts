@@ -1,5 +1,9 @@
 import { getAdminClient } from '@/lib/db/server';
 import { findPlanBySlug } from '@/core/billing/plans';
+import {
+  getEffectiveSubscriptionStatus,
+  hasCurrentEntitlement,
+} from '@/core/billing/entitlement';
 import type {
   FeatureAccessResult,
   SubscriptionPlan,
@@ -25,7 +29,8 @@ function assertDatabaseResult(
   error: { message?: string } | null | undefined,
   operation: string
 ): void {
-  if (error) throw new Error(`${operation}: ${error.message || 'database error'}`);
+  if (error)
+    throw new Error(`${operation}: ${error.message || 'database error'}`);
 }
 
 function relationRecord(value: unknown): Record<string, unknown> | null {
@@ -43,7 +48,11 @@ function resultRecord(value: unknown): Record<string, unknown> | null {
 function normalizeSubscriptionStatus(
   raw: unknown
 ): WorkspaceSubscription['status'] {
-  switch (String(raw || '').trim().toUpperCase()) {
+  switch (
+    String(raw || '')
+      .trim()
+      .toUpperCase()
+  ) {
     case 'TRIAL':
     case 'TRIALING':
       return 'TRIAL';
@@ -65,10 +74,6 @@ function normalizeSubscriptionStatus(
     default:
       return 'INCOMPLETE';
   }
-}
-
-function hasCurrentEntitlement(status: WorkspaceSubscription['status']): boolean {
-  return status === 'ACTIVE' || status === 'TRIAL';
 }
 
 function deniedLimit(reason: string): UsageLimitCheckResult {
@@ -130,13 +135,19 @@ export async function getWorkspaceSubscription(
     throw new Error('Subscription record is incomplete');
   }
 
+  const status = getEffectiveSubscriptionStatus({
+    status: normalizeSubscriptionStatus(subscriptionRow.status),
+    currentPeriodStart: periodStart,
+    currentPeriodEnd: periodEnd,
+  });
+
   return {
     subscription: {
       id,
       workspaceId,
       planId: plan.id,
       planSlug: plan.slug,
-      status: normalizeSubscriptionStatus(subscriptionRow.status),
+      status,
       billingCycle:
         subscriptionRow.billing_cycle === 'yearly' ? 'yearly' : 'monthly',
       setupFeePaid: subscriptionRow.setup_fee_paid === true,
@@ -170,7 +181,7 @@ export async function checkFeatureAccess(
 
   try {
     const { subscription, plan } = await getWorkspaceSubscription(accountId);
-    if (!hasCurrentEntitlement(subscription.status)) {
+    if (!hasCurrentEntitlement(subscription)) {
       return {
         allowed: false,
         featureKey: normalizedFeature,
@@ -181,8 +192,7 @@ export async function checkFeatureAccess(
 
     const allowed =
       plan.features.includes(normalizedFeature) ||
-      plan.features.includes('all') ||
-      plan.slug === 'pro';
+      plan.features.includes('all');
     return allowed
       ? { allowed: true, featureKey: normalizedFeature }
       : {
@@ -209,7 +219,7 @@ export async function checkPlanLimits(
     const workspaceId = requireAccountId(accountId);
     const db = getAdminClient();
     const { subscription, plan } = await getWorkspaceSubscription(workspaceId);
-    if (!hasCurrentEntitlement(subscription.status)) {
+    if (!hasCurrentEntitlement(subscription)) {
       return deniedLimit(
         `Your subscription is ${subscription.status.toLowerCase().replace(/_/g, ' ')}. Please renew before using this resource.`
       );
@@ -267,7 +277,9 @@ export async function checkPlanLimits(
     }
 
     if (!Number.isFinite(limit) || limit <= 0) {
-      return deniedLimit('This resource is not available on your current plan.');
+      return deniedLimit(
+        'This resource is not available on your current plan.'
+      );
     }
 
     const remaining = Math.max(0, limit - currentUsage);
@@ -308,11 +320,14 @@ export async function incrementUsage(
     throw new Error('Usage quantity is invalid');
   }
 
-  const { data, error } = await getAdminClient().rpc('increment_usage_tracking', {
-    p_account_id: workspaceId,
-    p_metric: metric,
-    p_quantity: quantity,
-  });
+  const { data, error } = await getAdminClient().rpc(
+    'increment_usage_tracking',
+    {
+      p_account_id: workspaceId,
+      p_metric: metric,
+      p_quantity: quantity,
+    }
+  );
   assertDatabaseResult(error, 'Failed to increment usage');
   if (!resultRecord(data)?.ok) throw new Error('Failed to increment usage');
 }
@@ -327,14 +342,14 @@ export async function expireStaleTrials(): Promise<{
     .from('subscriptions')
     .select('id, account_id')
     .eq('status', 'trial')
-    .lt('end_date', now);
+    .lte('end_date', now);
   assertDatabaseResult(trialsResult.error, 'Failed to load stale trials');
 
   const subscriptionsResult = await db
     .from('subscriptions')
     .select('id, account_id')
     .eq('status', 'active')
-    .lt('end_date', now);
+    .lte('end_date', now);
   assertDatabaseResult(
     subscriptionsResult.error,
     'Failed to load expired subscriptions'
@@ -342,13 +357,17 @@ export async function expireStaleTrials(): Promise<{
 
   let expiredTrialsCount = 0;
   for (const trial of trialsResult.data || []) {
+    // Recheck eligibility at the write so a concurrent renewal wins safely.
     const result = await db
       .from('subscriptions')
       .update({ status: 'expired', updated_at: now })
       .eq('id', trial.id)
-      .eq('account_id', trial.account_id);
+      .eq('account_id', trial.account_id)
+      .eq('status', 'trial')
+      .lte('end_date', now)
+      .select('id');
     assertDatabaseResult(result.error, 'Failed to expire trial');
-    expiredTrialsCount++;
+    expiredTrialsCount += result.data?.length ?? 0;
   }
 
   let expiredSubsCount = 0;
@@ -357,9 +376,12 @@ export async function expireStaleTrials(): Promise<{
       .from('subscriptions')
       .update({ status: 'expired', updated_at: now })
       .eq('id', subscription.id)
-      .eq('account_id', subscription.account_id);
+      .eq('account_id', subscription.account_id)
+      .eq('status', 'active')
+      .lte('end_date', now)
+      .select('id');
     assertDatabaseResult(result.error, 'Failed to expire subscription');
-    expiredSubsCount++;
+    expiredSubsCount += result.data?.length ?? 0;
   }
 
   return { expiredTrialsCount, expiredSubsCount };
