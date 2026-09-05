@@ -96,7 +96,15 @@ export function collectDiagnostics({
       .filter(Boolean)
       .join('\n');
     const cleaned = sanitizeDiagnostic(raw, env);
-    const tail = cleaned.split('\n').slice(-100).join('\n').slice(-4200);
+    const failureHeaders = cleaned
+      .split('\n')
+      .filter((line) => /^\s*FAIL\s/.test(line))
+      .slice(0, 30)
+      .join('\n')
+      .slice(0, 1900);
+    const tail = failureHeaders
+      ? failureHeaders + '\n\nLast failure details:\n' + cleaned.slice(-2200)
+      : cleaned.split('\n').slice(-100).join('\n').slice(-4200);
     results.push({
       key: check.key,
       label: check.label,

@@ -17,7 +17,9 @@ function assertDatabaseResult(
 }
 
 function normalizeStatus(value: unknown): string {
-  return String(value || 'incomplete').trim().toUpperCase();
+  return String(value || 'incomplete')
+    .trim()
+    .toUpperCase();
 }
 
 function tenantStatus(
@@ -106,9 +108,7 @@ export async function getPlatformMetrics(): Promise<PlatformMetrics> {
     db.from('accounts').select('*'),
     db.from('profiles').select('id'),
     db.from('subscriptions').select('*, plan:plans(*)'),
-    db
-      .from('whatsapp_configs')
-      .select('account_id, status, connection_status'),
+    db.from('whatsapp_configs').select('account_id, status, connection_status'),
     db
       .from('usage_tracking')
       .select('account_id, ai_requests, whatsapp_messages')
@@ -122,7 +122,10 @@ export async function getPlatformMetrics(): Promise<PlatformMetrics> {
     subscriptionsResult.error,
     'Failed to load subscriptions'
   );
-  assertDatabaseResult(whatsappResult.error, 'Failed to load WhatsApp accounts');
+  assertDatabaseResult(
+    whatsappResult.error,
+    'Failed to load WhatsApp accounts'
+  );
   assertDatabaseResult(usageResult.error, 'Failed to load usage');
   assertDatabaseResult(messagesResult.error, 'Failed to count messages');
 
@@ -189,10 +192,11 @@ export async function getPlatformMetrics(): Promise<PlatformMetrics> {
     }
   }
 
-  const usageTotals = ((usageResult.data || []) as Record<string, unknown>[]).reduce(
+  const usageTotals = (
+    (usageResult.data || []) as Record<string, unknown>[]
+  ).reduce<{ aiRequests: number; whatsappMessages: number }>(
     (totals, row) => ({
-      aiRequests:
-        totals.aiRequests + (finiteNonNegative(row.ai_requests) || 0),
+      aiRequests: totals.aiRequests + (finiteNonNegative(row.ai_requests) || 0),
       whatsappMessages:
         totals.whatsappMessages +
         (finiteNonNegative(row.whatsapp_messages) || 0),
@@ -265,7 +269,10 @@ export async function listAllTenants(filter?: {
     'Failed to load subscriptions'
   );
   assertDatabaseResult(contactsResult.error, 'Failed to load contacts');
-  assertDatabaseResult(whatsappResult.error, 'Failed to load WhatsApp accounts');
+  assertDatabaseResult(
+    whatsappResult.error,
+    'Failed to load WhatsApp accounts'
+  );
   assertDatabaseResult(usageResult.error, 'Failed to load usage');
 
   const accounts = (accountsResult.data || []) as Record<string, unknown>[];
@@ -500,9 +507,7 @@ export async function extendTenantTrial({
     Date.now(),
     Number.isFinite(currentEnd) ? currentEnd : 0
   );
-  const trialEnd = new Date(
-    base + additionalDays * 86400 * 1000
-  ).toISOString();
+  const trialEnd = new Date(base + additionalDays * 86400 * 1000).toISOString();
 
   const { error } = await db
     .from('subscriptions')
@@ -536,10 +541,9 @@ export async function listAllUsers(): Promise<UserAdminView[]> {
   assertDatabaseResult(accountsResult.error, 'Failed to load accounts');
 
   const accounts = new Map(
-    ((accountsResult.data || []) as Record<string, unknown>[]).map((account) => [
-      String(account.id || ''),
-      account,
-    ])
+    ((accountsResult.data || []) as Record<string, unknown>[]).map(
+      (account) => [String(account.id || ''), account]
+    )
   );
 
   return ((profilesResult.data || []) as Record<string, unknown>[]).map(
@@ -560,9 +564,7 @@ export async function listAllUsers(): Promise<UserAdminView[]> {
         ),
         status: String(profile.status || 'Active'),
         createdAt: String(profile.created_at || ''),
-        lastActive: profile.updated_at
-          ? String(profile.updated_at)
-          : undefined,
+        lastActive: profile.updated_at ? String(profile.updated_at) : undefined,
       };
     }
   );

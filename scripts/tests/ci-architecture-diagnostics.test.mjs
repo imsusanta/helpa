@@ -9,6 +9,26 @@ import {
 
 const success = { status: 0, stdout: 'ok', stderr: '' };
 
+test('retains early failure names without exceeding the report bound', () => {
+  const results = collectDiagnostics({
+    env: {},
+    execute: (_command, args) =>
+      args[0] === 'test'
+        ? {
+            status: 1,
+            stderr:
+              ' FAIL src/tests/first-failure.test.ts > first contract\n' +
+              'diagnostic detail\n'.repeat(1000) +
+              'Last failure assertion',
+          }
+        : success,
+  });
+  const detail = results.find((result) => result.key === 'unit').detail;
+  assert.match(detail, /first-failure\.test\.ts/);
+  assert.match(detail, /Last failure assertion/);
+  assert.ok(detail.length <= 4200);
+});
+
 test('executes independent checks without a shell', () => {
   const calls = [];
   const results = collectDiagnostics({
