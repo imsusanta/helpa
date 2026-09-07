@@ -241,44 +241,51 @@ describe('Helpa Core AI Engine', () => {
       expect(bundle.systemPrompt).toMatch(/ROLE: AI (Hospital )?Receptionist/);
     });
 
-    it('resolves Coaching to AI Admission Assistant', async () => {
+    it('falls back for unreleased Coaching without changing tenant identity', async () => {
       const bundle = await buildAiContextBundle({
         accountId: tenantCoaching.id,
         conversationId: 'conv-c1',
         contactId: 'contact-c1',
       });
-      expect(bundle.role).toBe('AI Admission Assistant');
+      expect(bundle.role).toBe('AI Business Assistant');
+      expect(bundle.systemPrompt).toContain('ROLE: AI Business Assistant');
+      expect(bundle.systemPrompt).not.toContain('ROLE: AI Admission Assistant');
       expect(bundle.industry).toBe('coaching');
-      expect(bundle.systemPrompt).toContain('ROLE: AI Admission Assistant');
     });
 
-    it('resolves Solo Tutor to AI Teaching Assistant', async () => {
+    it('falls back for unreleased Solo Tutor without changing tenant identity', async () => {
       const bundle = await buildAiContextBundle({
         accountId: tenantTutor.id,
         conversationId: 'conv-t1',
         contactId: 'contact-t1',
       });
-      expect(bundle.role).toBe('AI Teaching Assistant');
+      expect(bundle.role).toBe('AI Business Assistant');
+      expect(bundle.systemPrompt).toContain('ROLE: AI Business Assistant');
+      expect(bundle.systemPrompt).not.toContain('ROLE: AI Teaching Assistant');
       expect(bundle.industry).toBe('solo_teacher');
     });
 
-    it('resolves Salon to AI Receptionist', async () => {
+    it('falls back for unreleased Salon without changing tenant identity', async () => {
       const bundle = await buildAiContextBundle({
         accountId: tenantSalon.id,
         conversationId: 'conv-s1',
         contactId: 'contact-s1',
       });
-      expect(bundle.role).toMatch(/AI (Salon )?Receptionist/);
+      expect(bundle.role).toBe('AI Business Assistant');
+      expect(bundle.systemPrompt).toContain('ROLE: AI Business Assistant');
+      expect(bundle.systemPrompt).not.toMatch(/ROLE: AI (Salon )?Receptionist/);
       expect(bundle.industry).toBe('salon');
     });
 
-    it('resolves Real Estate to AI Property Assistant', async () => {
+    it('falls back for unreleased Real Estate without changing tenant identity', async () => {
       const bundle = await buildAiContextBundle({
         accountId: tenantRealEstate.id,
         conversationId: 'conv-r1',
         contactId: 'contact-r1',
       });
-      expect(bundle.role).toBe('AI Property Assistant');
+      expect(bundle.role).toBe('AI Business Assistant');
+      expect(bundle.systemPrompt).toContain('ROLE: AI Business Assistant');
+      expect(bundle.systemPrompt).not.toContain('ROLE: AI Property Assistant');
       expect(bundle.industry).toBe('real_estate');
     });
   });
