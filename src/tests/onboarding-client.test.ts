@@ -69,6 +69,9 @@ describe('Helpa Client Onboarding Suite (Phase 2A)', () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
+    // Clear queued one-shot RPC results as well as call history.
+    mockAdminClient.rpc.mockReset();
+    mockAdminClient.from.mockReset();
     dbStore = {
       accounts: {
         id: 'acc-tenant-999',
@@ -323,9 +326,9 @@ describe('Helpa Client Onboarding Suite (Phase 2A)', () => {
     expect(String(companyKb?.answer_content)).toContain('09:00 AM');
   });
 
-  it('2. Successfully onboards a Salon business with pricing and templates', async () => {
+  it('2. Successfully onboards a general service business with custom pricing', async () => {
     const payload = {
-      industry: 'salon',
+      industry: 'general',
       name: 'Glamour Luxury Salon',
       city: 'Mumbai',
       services: [
@@ -342,7 +345,7 @@ describe('Helpa Client Onboarding Suite (Phase 2A)', () => {
 
     const res = await handleOnboard(req);
     expect(res.status).toBe(200);
-    expect(dbStore.accounts.industry).toBe('salon');
+    expect(dbStore.accounts.industry).toBe('general');
 
     const salonKb = dbStore.knowledgeBase.find((k) =>
       String(k.question_title).includes('Facial Glow')
@@ -470,7 +473,7 @@ describe('Helpa Client Onboarding Suite (Phase 2A)', () => {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        industry: 'salon',
+        industry: 'general',
         accountId: 'acc-victim-victim',
         account_id: 'acc-victim-victim',
       }),
@@ -480,6 +483,14 @@ describe('Helpa Client Onboarding Suite (Phase 2A)', () => {
     expect(res.status).toBe(200);
     // Verified: RPC strictly received auth context's accountId ('acc-tenant-999'), NOT the spoofed one
     expect(capturedAccountId).toBe('acc-tenant-999');
+    expect(mockAdminClient.rpc).toHaveBeenCalledOnce();
+    expect(mockAdminClient.rpc).toHaveBeenCalledWith(
+      'complete_workspace_onboarding',
+      expect.objectContaining({
+        p_account_id: 'acc-tenant-999',
+        p_user_id: 'user-owner-123',
+      })
+    );
   });
 
   it('8. Successfully resets industry template to general while preserving onboarding completion/exemption markers', async () => {
@@ -529,13 +540,15 @@ describe('Helpa Client Onboarding Suite (Phase 2A)', () => {
     const req = new Request('http://localhost:3000/api/account/onboard', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ industry: 'gym' }),
+      body: JSON.stringify({ industry: 'general' }),
     });
 
     const res = await handleOnboard(req);
     expect(res.status).toBe(500);
     const data = await res.json();
-    expect(data.error).toBe('Lock acquisition timeout or transaction error');
+    expect(data.error).toBe('Failed to complete workspace onboarding');
+    expect(data.error).not.toContain('Lock acquisition');
+    expect(mockAdminClient.rpc).toHaveBeenCalledOnce();
   });
 
   it('10. Separates permissions: initial setup requires owner; reconfigure and reset permit admin', async () => {
@@ -550,13 +563,15 @@ describe('Helpa Client Onboarding Suite (Phase 2A)', () => {
       {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ industry: 'salon' }),
+        body: JSON.stringify({ industry: 'general' }),
       }
     );
     const initialRes = await handleOnboard(initialReq);
     expect(initialRes.status).toBe(500);
     const initialData = await initialRes.json();
     expect(initialData.error).toContain('role owner required');
+    expect(requireRole).toHaveBeenLastCalledWith('owner');
+    expect(mockAdminClient.rpc).not.toHaveBeenCalled();
 
     // Admin role executing reconfigure -> permitted
     vi.mocked(requireRole).mockResolvedValueOnce({
@@ -576,7 +591,7 @@ describe('Helpa Client Onboarding Suite (Phase 2A)', () => {
         success: true,
         status: 'reconfigured',
         mutated: true,
-        industry: 'salon',
+        industry: 'general',
         completed_at: '2026-09-01T10:00:00Z',
       },
       error: null,
@@ -586,14 +601,25 @@ describe('Helpa Client Onboarding Suite (Phase 2A)', () => {
       {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ industry: 'salon', reconfigure: true }),
+        body: JSON.stringify({ industry: 'general', reconfigure: true }),
       }
     );
     const reconfigRes = await handleOnboard(reconfigReq);
     expect(reconfigRes.status).toBe(200);
     const reconfigData = await reconfigRes.json();
     expect(reconfigData.status).toBe('reconfigured');
-    expect(reconfigData.industry).toBe('salon');
+    expect(reconfigData.industry).toBe('general');
+    expect(requireRole).toHaveBeenLastCalledWith('admin');
+
+    const resetRes = await handleOnboard(
+      new Request('http://localhost:3000/api/account/onboard', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ reset: true }),
+      })
+    );
+    expect(resetRes.status).toBe(200);
+    expect(requireRole).toHaveBeenLastCalledWith('admin');
   });
 
   it('11. Explicit reconfigure (reconfigure=true) forwards p_reconfigure=true and returns status=reconfigured', async () => {
@@ -621,7 +647,7 @@ describe('Helpa Client Onboarding Suite (Phase 2A)', () => {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        industry: 'travel',
+        industry: 'general',
         reconfigure: true,
       }),
     });
@@ -684,7 +710,7 @@ describe('Helpa Client Onboarding Suite (Phase 2A)', () => {
     const req = new Request('http://localhost:3000/api/account/onboard', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ industry: 'gym' }),
+      body: JSON.stringify({ industry: 'general' }),
     });
 
     const res = await handleOnboard(req);
@@ -705,13 +731,15 @@ describe('Helpa Client Onboarding Suite (Phase 2A)', () => {
     const req = new Request('http://localhost:3000/api/account/onboard', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ industry: 'salon', reconfigure: true }),
+      body: JSON.stringify({ industry: 'general', reconfigure: true }),
     });
 
     const res = await handleOnboard(req);
     expect(res.status).toBe(500);
     const data = await res.json();
-    expect(data.error).toContain('Cannot reconfigure an unresolved account');
+    expect(data.error).toBe('Failed to complete workspace onboarding');
+    expect(data.error).not.toContain('acc-tenant-999');
+    expect(mockAdminClient.rpc).toHaveBeenCalledOnce();
   });
 
   it('15. Duplicate setup submission returns actual stored state rather than request input', async () => {
@@ -728,11 +756,11 @@ describe('Helpa Client Onboarding Suite (Phase 2A)', () => {
       error: null,
     });
 
-    // Client requests 'gym', but workspace is already completed as 'hospital_clinic'
+    // Client requests 'general', but workspace is already completed as 'hospital_clinic'
     const req = new Request('http://localhost:3000/api/account/onboard', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ industry: 'gym' }),
+      body: JSON.stringify({ industry: 'general' }),
     });
 
     const res = await handleOnboard(req);
@@ -742,4 +770,40 @@ describe('Helpa Client Onboarding Suite (Phase 2A)', () => {
     expect(data.mutated).toBe(false);
     expect(data.industry).toBe('hospital_clinic'); // Stored state preserved!
   });
+
+  it.each([
+    'salon',
+    'coaching',
+    'education',
+    'solo_teacher',
+    'tutor',
+    'real_estate',
+    'travel',
+    'restaurant',
+    'gym',
+    'fitness',
+    'unrecognized_industry',
+  ])(
+    'rejects unavailable industry %s before any database mutation',
+    async (industry) => {
+      const originalAccount = { ...dbStore.accounts };
+      for (const reconfigure of [false, true]) {
+        const response = await handleOnboard(
+          new Request('http://localhost:3000/api/account/onboard', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ industry, reconfigure }),
+          })
+        );
+        expect(response.status).toBe(400);
+        expect(await response.json()).toEqual({
+          error: 'Please select an available business type.',
+        });
+        expect(mockAdminClient.rpc).not.toHaveBeenCalled();
+        expect(mockAdminClient.from).not.toHaveBeenCalled();
+        expect(dbStore.accounts).toEqual(originalAccount);
+        expect(dbStore.knowledgeBase).toEqual([]);
+      }
+    }
+  );
 });

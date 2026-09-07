@@ -1,44 +1,86 @@
-import { afterEach, describe, expect, it } from 'vitest';
+import { createHmac } from 'node:crypto';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { POST } from './route';
 
-const ORIGINAL_SECRET = process.env.RAZORPAY_WEBHOOK_SECRET;
+const { getAdminClient } = vi.hoisted(() => ({ getAdminClient: vi.fn() }));
 
-afterEach(() => {
-  if (ORIGINAL_SECRET === undefined) delete process.env.RAZORPAY_WEBHOOK_SECRET;
-  else process.env.RAZORPAY_WEBHOOK_SECRET = ORIGINAL_SECRET;
+vi.mock('@/lib/supabase/server', () => ({ getAdminClient }));
+
+beforeEach(() => {
+  getAdminClient.mockReset();
+  getAdminClient.mockImplementation(() => {
+    throw new Error('Unexpected database access before webhook verification');
+  });
 });
 
-describe('POST /api/webhooks/razorpay', () => {
-  it('fails closed with 503 when RAZORPAY_WEBHOOK_SECRET is unset', async () => {
-    delete process.env.RAZORPAY_WEBHOOK_SECRET;
-    const { POST } = await import('@/app/api/webhooks/razorpay/route');
+afterEach(() => {
+  vi.unstubAllEnvs();
+});
 
-    const res = await POST(
-      new Request('http://localhost/api/webhooks/razorpay', {
-        method: 'POST',
-        headers: { 'x-razorpay-signature': 'anything' },
-        body: JSON.stringify({ event: 'payment.captured' }),
-      }) as never
+function request(body: string, signature?: string) {
+  return new Request('http://localhost/api/webhooks/razorpay', {
+    method: 'POST',
+    headers: signature ? { 'x-razorpay-signature': signature } : {},
+    body,
+  }) as never;
+}
+
+describe('POST /api/webhooks/razorpay', () => {
+  it('fails closed with 503 without exposing missing-secret configuration', async () => {
+    vi.stubEnv('RAZORPAY_WEBHOOK_SECRET', undefined);
+    const response = await POST(
+      request(JSON.stringify({ event: 'payment.captured' }), 'anything')
     );
 
-    expect(res.status).toBe(503);
-    const json = await res.json();
-    expect(json.error).toMatch(/secret/i);
+    expect(response.status).toBe(503);
+    expect(await response.json()).toEqual({
+      error: 'Webhook service is unavailable',
+    });
+    expect(getAdminClient).not.toHaveBeenCalled();
   });
 
-  it('rejects an invalid signature when the secret is configured', async () => {
-    process.env.RAZORPAY_WEBHOOK_SECRET = 'test-webhook-secret';
-    const { POST } = await import('@/app/api/webhooks/razorpay/route');
+  it.each([undefined, 'not-a-valid-hmac', '0'.repeat(64)])(
+    'rejects an absent or invalid signature before database access (%s)',
+    async (signature) => {
+      vi.stubEnv('RAZORPAY_WEBHOOK_SECRET', 'test-webhook-secret');
+      const response = await POST(
+        request(JSON.stringify({ event: 'payment.captured' }), signature)
+      );
 
-    const res = await POST(
-      new Request('http://localhost/api/webhooks/razorpay', {
-        method: 'POST',
-        headers: { 'x-razorpay-signature': 'not-a-valid-hmac' },
-        body: JSON.stringify({ event: 'payment.captured' }),
-      }) as never
-    );
+      expect(response.status).toBe(400);
+      expect(await response.json()).toEqual({
+        error: 'Invalid webhook request',
+      });
+      expect(getAdminClient).not.toHaveBeenCalled();
+    }
+  );
 
-    expect(res.status).toBe(400);
-    const json = await res.json();
-    expect(json.error).toMatch(/signature/i);
+  it('rejects malformed JSON only after checking its valid signature', async () => {
+    const secret = 'test-webhook-secret';
+    vi.stubEnv('RAZORPAY_WEBHOOK_SECRET', secret);
+    const body = '{';
+    const signature = createHmac('sha256', secret).update(body).digest('hex');
+    const response = await POST(request(body, signature));
+
+    expect(response.status).toBe(400);
+    expect(await response.json()).toEqual({
+      error: 'Invalid webhook payload',
+    });
+    expect(getAdminClient).not.toHaveBeenCalled();
+  });
+
+  it('accepts an authenticated irrelevant event without accessing payment data', async () => {
+    const secret = 'test-webhook-secret';
+    vi.stubEnv('RAZORPAY_WEBHOOK_SECRET', secret);
+    const body = JSON.stringify({ event: 'subscription.authenticated' });
+    const signature = createHmac('sha256', secret).update(body).digest('hex');
+    const response = await POST(request(body, signature));
+
+    expect(response.status).toBe(200);
+    expect(await response.json()).toEqual({
+      received: true,
+      event: 'subscription.authenticated',
+    });
+    expect(getAdminClient).not.toHaveBeenCalled();
   });
 });
