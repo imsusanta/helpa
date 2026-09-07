@@ -87,7 +87,7 @@
     "ws": "^8.21.3"
   },
   "devDependencies": {
-    "@playwright/test": "^1.50.1",
+    "@playwright/test": "^1.63.0",
     "@tailwindcss/postcss": "^4",
     "@types/canvas-confetti": "^1.9.0",
     "@types/node": "^26",
@@ -100,7 +100,7 @@
     "eslint-config-next": "16.3.4",
     "prettier": "^3.9.6",
     "prettier-plugin-tailwindcss": "^0.8.1",
-    "shadcn": "^4.19.1",
+    "shadcn": "^4.21.0",
     "tailwindcss": "^4",
     "tsx": "^4.23.13",
     "typescript": "^5.9.3",
