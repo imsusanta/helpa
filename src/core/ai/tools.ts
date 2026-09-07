@@ -7,15 +7,42 @@
  */
 
 import { getAdminClient } from '@/lib/db/server';
-import type { AiExecutionContext } from './types';
-import { getIndustryModulePort } from '@/core/modules/industry-port';
-import { AiToolRegistry } from './tool-registry';
+import type { AiToolDefinition, AiExecutionContext } from './types';
+import { registerTourPackageTools } from './tour-package-tools';
+import { resolveIndustryAlias } from '@/core/modules/terminology';
+import { sendNotification } from '@/core/notifications';
 
-// Resolve the port lazily so registration/reset never leaves stale tools in
-// the platform registry. Tool authorization remains in the existing executor.
-export const aiToolRegistry = new AiToolRegistry(
-  () => getIndustryModulePort().getAiTools?.() ?? []
-);
+class AiToolRegistry {
+  private tools: Map<string, AiToolDefinition> = new Map();
+
+  public register(tool: AiToolDefinition): void {
+    this.tools.set(tool.name, tool);
+  }
+
+  public get(name: string): AiToolDefinition | undefined {
+    return this.tools.get(name);
+  }
+
+  public getAll(): AiToolDefinition[] {
+    return Array.from(this.tools.values());
+  }
+
+  public getToolsForIndustry(industry?: string): AiToolDefinition[] {
+    const all = this.getAll();
+    if (!industry) return all;
+    const canonicalTarget = resolveIndustryAlias(industry);
+    return all.filter(
+      (t) =>
+        !t.allowedIndustries ||
+        t.allowedIndustries.length === 0 ||
+        t.allowedIndustries.some(
+          (ind) => resolveIndustryAlias(ind) === canonicalTarget
+        )
+    );
+  }
+}
+
+export const aiToolRegistry = new AiToolRegistry();
 
 // ═════════════════════════════════════════════════════════════════════════
 // Core READ Tools
@@ -599,6 +626,14 @@ aiToolRegistry.register({
       };
     }
 
+    // Non-blocking push notification alert to staff
+    sendNotification(context.accountId, {
+      title: '📅 New Appointment Booked',
+      body: `${docOrService} on ${date} at ${time}`,
+      url: `/appointments`,
+      channel: 'push',
+    }).catch(() => {});
+
     return {
       success: true,
       data: {
@@ -800,6 +835,14 @@ aiToolRegistry.register({
       created_at: new Date().toISOString(),
     });
 
+    // Non-blocking push alert to staff
+    sendNotification(context.accountId, {
+      title: '🚨 Human Handoff Requested',
+      body: reason,
+      url: `/inbox?conversation=${context.conversationId}`,
+      channel: 'push',
+    }).catch(() => {});
+
     return {
       success: true,
       data: {
@@ -948,3 +991,5 @@ aiToolRegistry.register({
     };
   },
 });
+
+registerTourPackageTools(aiToolRegistry);
