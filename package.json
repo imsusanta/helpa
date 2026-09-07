@@ -59,7 +59,7 @@
     "supabase:fresh:keep": "bash scripts/supabase-fresh-smoke.sh keep"
   },
   "dependencies": {
-    "@base-ui/react": "^1.7.0",
+    "@base-ui/react": "^1.8.0",
     "@dagrejs/dagre": "^3.1.1",
     "@dnd-kit/core": "^6.3.1",
     "@dnd-kit/sortable": "^10.0.0",
