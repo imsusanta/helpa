@@ -116,7 +116,10 @@ export class OutboxService {
       );
 
       if (error) {
-        console.error('[OutboxService] Atomic enqueue failed:', errorMessage(error));
+        console.error(
+          '[OutboxService] Atomic enqueue failed:',
+          errorMessage(error)
+        );
         return persistenceFailure();
       }
 
@@ -181,14 +184,11 @@ export class OutboxService {
       'providerMessageId'
     );
 
-    const { data, error } = await db.rpc(
-      'complete_whatsapp_outbound_message',
-      {
-        p_outbox_id: normalizedOutboxId,
-        p_account_id: normalizedAccountId,
-        p_provider_message_id: normalizedProviderId,
-      }
-    );
+    const { data, error } = await db.rpc('complete_whatsapp_outbound_message', {
+      p_outbox_id: normalizedOutboxId,
+      p_account_id: normalizedAccountId,
+      p_provider_message_id: normalizedProviderId,
+    });
     const result = asRecord(data);
     if (!error && result?.ok) return;
 
@@ -227,10 +227,9 @@ export class OutboxService {
           providerMessageId,
           'providerMessageId'
         ),
-        last_error_message: String(dbErrorMessage || 'Local persistence failed').slice(
-          0,
-          255
-        ),
+        last_error_message: String(
+          dbErrorMessage || 'Local persistence failed'
+        ).slice(0, 255),
         lease_expires_at: null,
         locked_at: null,
         locked_by: null,
@@ -298,7 +297,9 @@ export class OutboxService {
       }
     );
     if (error) {
-      throw new Error(`Failed to claim reconciliation work: ${errorMessage(error)}`);
+      throw new Error(
+        `Failed to claim reconciliation work: ${errorMessage(error)}`
+      );
     }
 
     const pending = Array.isArray(data)

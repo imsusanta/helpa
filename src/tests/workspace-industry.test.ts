@@ -75,9 +75,8 @@ describe('Phase 2: Dynamic Industry Workspace Manifests', () => {
     });
 
     it('resolves aliases while independently checking availability', async () => {
-      const { isValidIndustry, resolveCanonicalIndustry } = await import(
-        '@/modules/registry'
-      );
+      const { isValidIndustry, resolveCanonicalIndustry } =
+        await import('@/modules/registry');
       expect(resolveCanonicalIndustry('health')).toBe('hospital_clinic');
       expect(resolveCanonicalIndustry('education')).toBe('coaching');
       expect(resolveCanonicalIndustry('other')).toBe('general');

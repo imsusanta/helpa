@@ -30,7 +30,10 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     const signature = request.headers.get('x-razorpay-signature') || '';
     if (!verifyRazorpayWebhookSignature(rawBody, signature, secret)) {
       console.warn('[Razorpay Webhook] Invalid signature rejected');
-      return NextResponse.json({ error: 'Invalid webhook request' }, { status: 400 });
+      return NextResponse.json(
+        { error: 'Invalid webhook request' },
+        { status: 400 }
+      );
     }
 
     let decoded: unknown;
@@ -64,7 +67,10 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     if (order.status === 'captured') {
       if (order.razorpay_payment_id !== event.paymentId) {
         console.error('[Razorpay Webhook] Captured order/payment mismatch');
-        return NextResponse.json({ error: 'Payment conflict' }, { status: 409 });
+        return NextResponse.json(
+          { error: 'Payment conflict' },
+          { status: 409 }
+        );
       }
       return NextResponse.json({ received: true, status: 'already_processed' });
     }
@@ -76,11 +82,17 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       expectedAmountPaise !== event.amountPaise
     ) {
       console.error('[Razorpay Webhook] Provider amount mismatch rejected');
-      return NextResponse.json({ error: 'Payment amount mismatch' }, { status: 400 });
+      return NextResponse.json(
+        { error: 'Payment amount mismatch' },
+        { status: 400 }
+      );
     }
     if (String(order.currency).toUpperCase() !== event.currency) {
       console.error('[Razorpay Webhook] Provider currency mismatch rejected');
-      return NextResponse.json({ error: 'Payment currency mismatch' }, { status: 400 });
+      return NextResponse.json(
+        { error: 'Payment currency mismatch' },
+        { status: 400 }
+      );
     }
 
     if (event.event === 'payment.failed') {
@@ -112,7 +124,9 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     const planRowId = await resolvePlanRowId(targetPlan);
     if (!planRowId) throw new Error('Plan catalog row is unavailable');
 
-    const signatureDigest = createHash('sha256').update(signature).digest('hex');
+    const signatureDigest = createHash('sha256')
+      .update(signature)
+      .digest('hex');
     const { data, error } = await database.rpc(
       'apply_razorpay_captured_payment',
       {
@@ -139,7 +153,10 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
   } catch (error) {
     if (error instanceof RazorpayWebhookPayloadError) {
       console.warn('[Razorpay Webhook] Invalid payload rejected');
-      return NextResponse.json({ error: 'Invalid webhook payload' }, { status: 400 });
+      return NextResponse.json(
+        { error: 'Invalid webhook payload' },
+        { status: 400 }
+      );
     }
     console.error('[Razorpay Webhook] Processing failed');
     return NextResponse.json(

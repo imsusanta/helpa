@@ -140,14 +140,11 @@ describe('OutboxService tenant isolation and reliability', () => {
 
     await OutboxService.markSent('outbox_123', 'acc_tenant_a', 'wamid_123');
 
-    expect(mockRpc).toHaveBeenCalledWith(
-      'complete_whatsapp_outbound_message',
-      {
-        p_outbox_id: 'outbox_123',
-        p_account_id: 'acc_tenant_a',
-        p_provider_message_id: 'wamid_123',
-      }
-    );
+    expect(mockRpc).toHaveBeenCalledWith('complete_whatsapp_outbound_message', {
+      p_outbox_id: 'outbox_123',
+      p_account_id: 'acc_tenant_a',
+      p_provider_message_id: 'wamid_123',
+    });
   });
 
   it('tenant-scopes reconciliation-required transitions', async () => {

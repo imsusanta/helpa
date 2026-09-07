@@ -7,7 +7,8 @@ function assertResult(
   error: { message?: string } | null | undefined,
   operation: string
 ): void {
-  if (error) throw new Error(`${operation}: ${error.message || 'database error'}`);
+  if (error)
+    throw new Error(`${operation}: ${error.message || 'database error'}`);
 }
 
 export async function GET() {
@@ -20,16 +21,20 @@ export async function GET() {
     }
 
     const database = getSupabaseAdminClient();
-    const [accountsResult, profilesResult, subscriptionsResult, contactsResult] =
-      await Promise.all([
-        database
-          .from('accounts')
-          .select('*')
-          .order('created_at', { ascending: false }),
-        database.from('profiles').select('*'),
-        database.from('subscriptions').select('*, plan:plans(id, name)'),
-        database.from('contacts').select('id, account_id'),
-      ]);
+    const [
+      accountsResult,
+      profilesResult,
+      subscriptionsResult,
+      contactsResult,
+    ] = await Promise.all([
+      database
+        .from('accounts')
+        .select('*')
+        .order('created_at', { ascending: false }),
+      database.from('profiles').select('*'),
+      database.from('subscriptions').select('*, plan:plans(id, name)'),
+      database.from('contacts').select('id, account_id'),
+    ]);
 
     assertResult(accountsResult.error, 'Failed to load accounts');
     assertResult(profilesResult.error, 'Failed to load profiles');
@@ -131,7 +136,10 @@ export async function PATCH(request: Request) {
     } | null;
     const tenantId = body?.tenantId?.trim();
     if (!tenantId) {
-      return NextResponse.json({ error: 'tenantId is required' }, { status: 400 });
+      return NextResponse.json(
+        { error: 'tenantId is required' },
+        { status: 400 }
+      );
     }
 
     const status = body?.status?.trim().toLowerCase();

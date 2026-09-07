@@ -54,9 +54,7 @@ function cleanText(value: unknown, maxLength: number): string {
 }
 
 function normalizeText(value: unknown): string {
-  return cleanText(value, 20_000)
-    .normalize('NFKC')
-    .toLocaleLowerCase('en');
+  return cleanText(value, 20_000).normalize('NFKC').toLocaleLowerCase('en');
 }
 
 function meaningfulTerms(value: string): string[] {
@@ -136,9 +134,7 @@ export async function getRelevantKnowledge(
 }
 
 function referenceText(value: unknown, maxLength: number): string {
-  return cleanText(value, maxLength)
-    .replaceAll('<', '‹')
-    .replaceAll('>', '›');
+  return cleanText(value, maxLength).replaceAll('<', '‹').replaceAll('>', '›');
 }
 
 /**
@@ -151,7 +147,8 @@ export function formatKnowledgeForAi(items: KnowledgeItem[]): string {
   }
 
   const articles = items.slice(0, 20).map((item, index) => {
-    const category = referenceText(item.category, 100).toUpperCase() || 'GENERAL';
+    const category =
+      referenceText(item.category, 100).toUpperCase() || 'GENERAL';
     const title = referenceText(item.question_title, 300).replace(/\s+/g, ' ');
     const content = referenceText(item.answer_content, 4_000);
     return `[Article ${index + 1}] (${category}): ${title}\n${content}`;

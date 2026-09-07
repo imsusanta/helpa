@@ -68,7 +68,8 @@ export async function POST(request: Request) {
           .delete()
           .eq('account_id', ctx.accountId)
           .in('id', seededIds);
-        if (workflowsError) throw new Error('Failed to remove seeded workflows');
+        if (workflowsError)
+          throw new Error('Failed to remove seeded workflows');
       }
       return NextResponse.json({ success: true, reset: true });
     }

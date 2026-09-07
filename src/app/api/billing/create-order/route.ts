@@ -79,9 +79,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
         amount: totalAmountInInr,
         currency: targetPlan.currency.toUpperCase(),
         plan_slug: targetPlan.slug,
-        payment_type: isFirstTime
-          ? 'setup_and_first_month'
-          : 'monthly_renewal',
+        payment_type: isFirstTime ? 'setup_and_first_month' : 'monthly_renewal',
         status: 'pending',
         is_setup_fee_included: isFirstTime,
         setup_fee_amount: isFirstTime ? targetPlan.setupFee : 0,

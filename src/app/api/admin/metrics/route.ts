@@ -6,11 +6,14 @@ function assertResult(
   error: { message?: string } | null | undefined,
   operation: string
 ): void {
-  if (error) throw new Error(`${operation}: ${error.message || 'database error'}`);
+  if (error)
+    throw new Error(`${operation}: ${error.message || 'database error'}`);
 }
 
 function normalizeStatus(value: unknown): string {
-  return String(value || '').trim().toLowerCase();
+  return String(value || '')
+    .trim()
+    .toLowerCase();
 }
 
 export async function GET() {

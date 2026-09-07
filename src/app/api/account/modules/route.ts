@@ -74,11 +74,7 @@ export async function POST(request: Request) {
     }
 
     const settings = body?.settings ?? {};
-    if (
-      !settings ||
-      typeof settings !== 'object' ||
-      Array.isArray(settings)
-    ) {
+    if (!settings || typeof settings !== 'object' || Array.isArray(settings)) {
       return NextResponse.json(
         { error: 'settings must be an object' },
         { status: 400 }

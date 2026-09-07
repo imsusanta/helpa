@@ -25,8 +25,7 @@ export async function POST(request: Request) {
       unknown
     >;
     const email = typeof body.email === 'string' ? body.email.trim() : '';
-    const password =
-      typeof body.password === 'string' ? body.password : '';
+    const password = typeof body.password === 'string' ? body.password : '';
     const userName =
       typeof body.name === 'string'
         ? body.name
@@ -149,8 +148,7 @@ export async function POST(request: Request) {
             account_id: accountId,
             module_key: moduleKey,
             enabled:
-              moduleConfig.id === moduleKey &&
-              isSelectableIndustry(moduleKey),
+              moduleConfig.id === moduleKey && isSelectableIndustry(moduleKey),
             settings: {},
             updated_at: nowIso,
           }));
